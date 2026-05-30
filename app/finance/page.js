@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 const TYPES = [
@@ -19,6 +19,7 @@ export default function FinancePage() {
     etransferName: '',
     etransferEmail: '',
   })
+  const submissionId = useRef(crypto.randomUUID())
   const [events, setEvents] = useState([])
   const [selectedEvent, setSelectedEvent] = useState('')
   const [isNewEvent, setIsNewEvent] = useState(false)
@@ -69,6 +70,7 @@ export default function FinancePage() {
 
     try {
       const formData = new FormData()
+      formData.append('submissionId', submissionId.current)
       formData.append('type', type)
       formData.append('item', form.item)
       formData.append('date', form.date)
@@ -88,6 +90,7 @@ export default function FinancePage() {
         setEvents((prev) => [...prev, newEventName.trim()].sort())
       }
 
+      submissionId.current = crypto.randomUUID()
       setStatus('success')
       setForm({ item: '', date: '', amount: '', etransferName: '', etransferEmail: '' })
       setReceipt(null)

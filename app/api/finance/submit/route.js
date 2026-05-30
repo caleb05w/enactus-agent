@@ -9,6 +9,7 @@ export async function POST(req) {
   try {
     const formData = await req.formData()
 
+    const submissionId = formData.get('submissionId')
     const type = formData.get('type')
     const item = formData.get('item')
     const date = formData.get('date')
@@ -19,8 +20,15 @@ export async function POST(req) {
     const receipt = formData.get('receipt')
     const hasReceipt = receipt instanceof File && receipt.size > 0
 
-    if (!type || !item || !date || !amount || !etransferName || !etransferEmail || !event) {
+    if (!submissionId || !type || !item || !date || !amount || !etransferName || !etransferEmail || !event) {
       return NextResponse.json({ error: 'All fields are required.' }, { status: 400 })
+    }
+
+    // Duplicate check — reject if this submissionId was already processed
+    await connectDB()
+    const existing = await Finance.findOne({ submissionId })
+    if (existing) {
+      return NextResponse.json({ error: 'Duplicate submission detected.' }, { status: 409 })
     }
 
     if (type === 'reimbursement' && !hasReceipt) {
@@ -31,9 +39,8 @@ export async function POST(req) {
       ? await uploadReceiptToDrive(receipt, { item, etransferName, event })
       : ''
 
-    const data = { type, item, date, amount, etransferName, etransferEmail, event, receiptUrl }
+    const data = { submissionId, type, item, date, amount, etransferName, etransferEmail, event, receiptUrl }
 
-    await connectDB()
     await Finance.create(data)
 
     await Promise.all([appendFinanceRow(data), postFinanceToSlack(data)])
