@@ -27,14 +27,12 @@ export default function Home() {
           >
             Make a submission
           </Link>
-          <a
-            href="https://enactus.org"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/finance"
             className="inline-flex items-center justify-center rounded-md border border-zinc-200 px-6 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
           >
-            Learn about Enactus
-          </a>
+            Finance request
+          </Link>
         </div>
       </div>
     </main>
