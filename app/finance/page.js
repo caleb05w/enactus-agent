@@ -10,6 +10,13 @@ const TYPES = [
 
 const inputClass = 'w-full rounded-md border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100 transition'
 
+const STEPS = [
+  { id: 'receipt', label: 'Uploading receipt' },
+  { id: 'db', label: 'Saving to database' },
+  { id: 'sheets', label: 'Logging to spreadsheet' },
+  { id: 'slack', label: 'Notifying Slack' },
+]
+
 export default function FinancePage() {
   const [type, setType] = useState('reimbursement')
   const [form, setForm] = useState({
@@ -27,6 +34,8 @@ export default function FinancePage() {
   const [receipt, setReceipt] = useState(null)
   const [status, setStatus] = useState('idle')
   const [errorMsg, setErrorMsg] = useState('')
+  const [currentStep, setCurrentStep] = useState(-1)
+  const stepTimer = useRef(null)
 
   useEffect(() => {
     fetch('/api/finance/events')
@@ -57,9 +66,25 @@ export default function FinancePage() {
 
   const eventValue = isNewEvent ? newEventName : selectedEvent
 
+  function startSteps() {
+    setCurrentStep(0)
+    let step = 0
+    stepTimer.current = setInterval(() => {
+      step += 1
+      if (step < STEPS.length) setCurrentStep(step)
+      else clearInterval(stepTimer.current)
+    }, 900)
+  }
+
+  function stopSteps() {
+    clearInterval(stepTimer.current)
+    setCurrentStep(STEPS.length)
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setStatus('loading')
+    setCurrentStep(-1)
     setErrorMsg('')
 
     if (!eventValue.trim()) {
@@ -67,6 +92,8 @@ export default function FinancePage() {
       setStatus('error')
       return
     }
+
+    startSteps()
 
     try {
       const formData = new FormData()
@@ -90,6 +117,7 @@ export default function FinancePage() {
         setEvents((prev) => [...prev, newEventName.trim()].sort())
       }
 
+      stopSteps()
       submissionId.current = crypto.randomUUID()
       setStatus('success')
       setForm({ item: '', date: '', amount: '', etransferName: '', etransferEmail: '' })
@@ -98,6 +126,8 @@ export default function FinancePage() {
       setIsNewEvent(false)
       setNewEventName('')
     } catch (err) {
+      clearInterval(stepTimer.current)
+      setCurrentStep(-1)
       setErrorMsg(err.message)
       setStatus('error')
     }
@@ -299,6 +329,34 @@ export default function FinancePage() {
           >
             {status === 'loading' ? 'Submitting…' : 'Submit request'}
           </button>
+
+          {status === 'loading' && (
+            <div className="space-y-2 pt-1">
+              {STEPS.map((step, i) => {
+                const done = currentStep > i
+                const active = currentStep === i
+                return (
+                  <div key={step.id} className="flex items-center gap-2.5">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                      done ? 'bg-zinc-900' : active ? 'bg-zinc-300' : 'bg-zinc-100'
+                    }`}>
+                      {done && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                      {active && <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 animate-pulse" />}
+                    </div>
+                    <span className={`text-xs transition-colors ${
+                      done ? 'text-zinc-400 line-through' : active ? 'text-zinc-700 font-medium' : 'text-zinc-300'
+                    }`}>
+                      {step.label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </form>
       </div>
     </main>
