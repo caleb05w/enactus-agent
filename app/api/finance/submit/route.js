@@ -24,13 +24,6 @@ export async function POST(req) {
       return NextResponse.json({ error: 'All fields are required.' }, { status: 400 })
     }
 
-    // Duplicate check — reject if this submissionId was already processed
-    await connectDB()
-    const existing = await Finance.findOne({ submissionId })
-    if (existing) {
-      return NextResponse.json({ error: 'Duplicate submission detected.' }, { status: 409 })
-    }
-
     if (type === 'reimbursement' && !hasReceipt) {
       return NextResponse.json({ error: 'Receipt is required for reimbursements.' }, { status: 400 })
     }
@@ -41,7 +34,17 @@ export async function POST(req) {
 
     const data = { submissionId, type, item, date, amount, etransferName, etransferEmail, event, receiptUrl }
 
-    await Finance.create(data)
+    await connectDB()
+
+    try {
+      await Finance.create(data)
+    } catch (err) {
+      // MongoDB duplicate key error — submissionId already exists
+      if (err.code === 11000) {
+        return NextResponse.json({ error: 'Duplicate submission detected.' }, { status: 409 })
+      }
+      throw err
+    }
 
     await Promise.all([appendFinanceRow(data), postFinanceToSlack(data)])
 

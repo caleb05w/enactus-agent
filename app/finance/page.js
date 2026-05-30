@@ -44,6 +44,10 @@ export default function FinancePage() {
       .catch(() => setEvents([]))
   }, [])
 
+  useEffect(() => {
+    return () => clearInterval(stepTimer.current)
+  }, [])
+
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
