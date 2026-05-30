@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
-import { uploadFile } from '@/lib/upload'
+import { uploadReceiptToDrive } from '@/lib/drive'
 import Finance from '@/lib/models/Finance'
 import { appendFinanceRow } from '@/lib/sheets'
 import { postFinanceToSlack } from '@/lib/slack'
@@ -26,7 +26,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Receipt is required for reimbursements.' }, { status: 400 })
     }
 
-    const receiptUrl = hasReceipt ? await uploadFile(receipt) : ''
+    const receiptUrl = hasReceipt ? await uploadReceiptToDrive(receipt) : ''
     const data = { type, item, date, amount, etransferName, etransferEmail, receiptUrl }
 
     await connectDB()
