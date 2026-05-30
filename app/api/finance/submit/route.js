@@ -37,7 +37,14 @@ export async function POST(req) {
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    console.error('[finance/submit] Error:', err?.message ?? err)
+
+    if (!process.env.GOOGLE_CLIENT_EMAIL) console.warn('[finance/submit] Missing env: GOOGLE_CLIENT_EMAIL')
+    if (!process.env.GOOGLE_PRIVATE_KEY) console.warn('[finance/submit] Missing env: GOOGLE_PRIVATE_KEY')
+    if (!process.env.GOOGLE_SPREADSHEET_ID) console.warn('[finance/submit] Missing env: GOOGLE_SPREADSHEET_ID')
+    if (!process.env.MONGODB_URI) console.warn('[finance/submit] Missing env: MONGODB_URI')
+    if (!process.env.SLACK_BOT_TOKEN) console.warn('[finance/submit] Missing env: SLACK_BOT_TOKEN')
+
+    return NextResponse.json({ error: err?.message ?? 'Something went wrong.' }, { status: 500 })
   }
 }

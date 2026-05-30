@@ -34,7 +34,11 @@ export async function POST(req) {
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    console.error('[submit] Error:', err?.message ?? err)
+
+    if (!process.env.MONGODB_URI) console.warn('[submit] Missing env: MONGODB_URI')
+    if (!process.env.SLACK_BOT_TOKEN) console.warn('[submit] Missing env: SLACK_BOT_TOKEN')
+
+    return NextResponse.json({ error: err?.message ?? 'Something went wrong.' }, { status: 500 })
   }
 }
