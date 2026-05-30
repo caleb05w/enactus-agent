@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 const TYPES = [
@@ -19,9 +19,20 @@ export default function FinancePage() {
     etransferName: '',
     etransferEmail: '',
   })
+  const [events, setEvents] = useState([])
+  const [selectedEvent, setSelectedEvent] = useState('')
+  const [isNewEvent, setIsNewEvent] = useState(false)
+  const [newEventName, setNewEventName] = useState('')
   const [receipt, setReceipt] = useState(null)
   const [status, setStatus] = useState('idle')
   const [errorMsg, setErrorMsg] = useState('')
+
+  useEffect(() => {
+    fetch('/api/finance/events')
+      .then((r) => r.json())
+      .then((data) => setEvents(data.events ?? []))
+      .catch(() => setEvents([]))
+  }, [])
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
@@ -33,10 +44,28 @@ export default function FinancePage() {
     setErrorMsg('')
   }
 
+  function handleEventChange(e) {
+    if (e.target.value === '__new__') {
+      setIsNewEvent(true)
+      setSelectedEvent('')
+    } else {
+      setIsNewEvent(false)
+      setSelectedEvent(e.target.value)
+    }
+  }
+
+  const eventValue = isNewEvent ? newEventName : selectedEvent
+
   async function handleSubmit(e) {
     e.preventDefault()
     setStatus('loading')
     setErrorMsg('')
+
+    if (!eventValue.trim()) {
+      setErrorMsg('Please select or enter an event.')
+      setStatus('error')
+      return
+    }
 
     try {
       const formData = new FormData()
@@ -46,6 +75,7 @@ export default function FinancePage() {
       formData.append('amount', form.amount)
       formData.append('etransferName', form.etransferName)
       formData.append('etransferEmail', form.etransferEmail)
+      formData.append('event', eventValue.trim())
       if (receipt) formData.append('receipt', receipt)
 
       const res = await fetch('/api/finance/submit', { method: 'POST', body: formData })
@@ -53,9 +83,17 @@ export default function FinancePage() {
 
       if (!res.ok) throw new Error(data.error || 'Submission failed.')
 
+      // Add new event to list if it was created
+      if (isNewEvent && newEventName.trim()) {
+        setEvents((prev) => [...prev, newEventName.trim()].sort())
+      }
+
       setStatus('success')
       setForm({ item: '', date: '', amount: '', etransferName: '', etransferEmail: '' })
       setReceipt(null)
+      setSelectedEvent('')
+      setIsNewEvent(false)
+      setNewEventName('')
     } catch (err) {
       setErrorMsg(err.message)
       setStatus('error')
@@ -76,10 +114,7 @@ export default function FinancePage() {
             <p className="text-zinc-500 text-sm">Your request has been saved, logged to the spreadsheet, and the team has been notified on Slack.</p>
           </div>
           <div className="flex justify-center gap-3">
-            <button
-              onClick={() => setStatus('idle')}
-              className="text-sm font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900"
-            >
+            <button onClick={() => setStatus('idle')} className="text-sm font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900">
               Submit another
             </button>
             <Link href="/" className="text-sm font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900">
@@ -110,9 +145,7 @@ export default function FinancePage() {
               type="button"
               onClick={() => handleTypeChange(t.id)}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                type === t.id
-                  ? 'bg-white text-zinc-950 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-700'
+                type === t.id ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
               }`}
             >
               {t.label}
@@ -121,6 +154,34 @@ export default function FinancePage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+
+          {/* Event selector */}
+          <div className="space-y-1.5">
+            <label htmlFor="event" className="block text-sm font-medium text-zinc-700">Event</label>
+            <select
+              id="event"
+              value={isNewEvent ? '__new__' : selectedEvent}
+              onChange={handleEventChange}
+              className={inputClass}
+            >
+              <option value="">Select an event...</option>
+              {events.map((ev) => (
+                <option key={ev} value={ev}>{ev}</option>
+              ))}
+              <option value="__new__">+ Add new event</option>
+            </select>
+            {isNewEvent && (
+              <input
+                type="text"
+                value={newEventName}
+                onChange={(e) => setNewEventName(e.target.value)}
+                placeholder="New event name"
+                className={inputClass}
+                autoFocus
+              />
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <label htmlFor="item" className="block text-sm font-medium text-zinc-700">Item / Description</label>
             <input
