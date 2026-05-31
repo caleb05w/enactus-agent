@@ -5,60 +5,83 @@ import Finance from '@/lib/models/Finance'
 import { appendFinanceRow } from '@/lib/sheets'
 import { postFinanceToSlack } from '@/lib/slack'
 
+const encoder = new TextEncoder()
+
+function emit(controller, data) {
+  controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+}
+
 export async function POST(req) {
-  try {
-    const formData = await req.formData()
+  const formData = await req.formData()
 
-    const submissionId = formData.get('submissionId')
-    const type = formData.get('type')
-    const item = formData.get('item')
-    const date = formData.get('date')
-    const amount = formData.get('amount')
-    const etransferName = formData.get('etransferName')
-    const etransferEmail = formData.get('etransferEmail')
-    const event = formData.get('event')
-    const receipt = formData.get('receipt')
-    const hasReceipt = receipt instanceof File && receipt.size > 0
+  const submissionId = formData.get('submissionId')
+  const type = formData.get('type')
+  const item = formData.get('item')
+  const date = formData.get('date')
+  const amount = formData.get('amount')
+  const etransferName = formData.get('etransferName')
+  const etransferEmail = formData.get('etransferEmail')
+  const event = formData.get('event')
+  const receipt = formData.get('receipt')
+  const hasReceipt = receipt instanceof File && receipt.size > 0
 
-    if (!submissionId || !type || !item || !date || !amount || !etransferName || !etransferEmail || !event) {
-      return NextResponse.json({ error: 'All fields are required.' }, { status: 400 })
-    }
-
-    if (type === 'reimbursement' && !hasReceipt) {
-      return NextResponse.json({ error: 'Receipt is required for reimbursements.' }, { status: 400 })
-    }
-
-    const receiptUrl = hasReceipt
-      ? await uploadReceiptToDrive(receipt, { item, etransferName, event })
-      : ''
-
-    const data = { submissionId, type, item, date, amount, etransferName, etransferEmail, event, receiptUrl }
-
-    await connectDB()
-
-    try {
-      await Finance.create(data)
-    } catch (err) {
-      // MongoDB duplicate key error — submissionId already exists
-      if (err.code === 11000) {
-        return NextResponse.json({ error: 'Duplicate submission detected.' }, { status: 409 })
-      }
-      throw err
-    }
-
-    await Promise.all([appendFinanceRow(data), postFinanceToSlack(data)])
-
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error('[finance/submit] Error:', err?.message ?? err)
-
-    if (!process.env.GOOGLE_CLIENT_EMAIL) console.warn('[finance/submit] Missing env: GOOGLE_CLIENT_EMAIL')
-    if (!process.env.GOOGLE_PRIVATE_KEY) console.warn('[finance/submit] Missing env: GOOGLE_PRIVATE_KEY')
-    if (!process.env.GOOGLE_SPREADSHEET_ID) console.warn('[finance/submit] Missing env: GOOGLE_SPREADSHEET_ID')
-    if (!process.env.GOOGLE_DRIVE_FOLDER_ID) console.warn('[finance/submit] Missing env: GOOGLE_DRIVE_FOLDER_ID')
-    if (!process.env.MONGODB_URI) console.warn('[finance/submit] Missing env: MONGODB_URI')
-    if (!process.env.SLACK_BOT_TOKEN) console.warn('[finance/submit] Missing env: SLACK_BOT_TOKEN')
-
-    return NextResponse.json({ error: err?.message ?? 'Something went wrong.' }, { status: 500 })
+  if (!submissionId || !type || !item || !date || !amount || !etransferName || !etransferEmail || !event) {
+    return NextResponse.json({ error: 'All fields are required.' }, { status: 400 })
   }
+
+  if (type === 'reimbursement' && !hasReceipt) {
+    return NextResponse.json({ error: 'Receipt is required for reimbursements.' }, { status: 400 })
+  }
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        emit(controller, { step: 0 })
+        const receiptUrl = hasReceipt
+          ? await uploadReceiptToDrive(receipt, { item, etransferName, event })
+          : ''
+
+        emit(controller, { step: 1 })
+        const data = { submissionId, type, item, date, amount, etransferName, etransferEmail, event, receiptUrl }
+        await connectDB()
+        try {
+          await Finance.create(data)
+        } catch (err) {
+          if (err.code === 11000) {
+            emit(controller, { error: 'Duplicate submission detected.' })
+            return
+          }
+          throw err
+        }
+
+        emit(controller, { step: 2 })
+        await appendFinanceRow(data)
+
+        emit(controller, { step: 3 })
+        await postFinanceToSlack(data)
+
+        emit(controller, { done: true, summary: { type, item, amount, event, etransferName, hasReceipt } })
+      } catch (err) {
+        console.error('[finance/submit] Error:', err?.message ?? err)
+
+        if (!process.env.GOOGLE_CLIENT_EMAIL) console.warn('[finance/submit] Missing env: GOOGLE_CLIENT_EMAIL')
+        if (!process.env.GOOGLE_PRIVATE_KEY) console.warn('[finance/submit] Missing env: GOOGLE_PRIVATE_KEY')
+        if (!process.env.GOOGLE_SPREADSHEET_ID) console.warn('[finance/submit] Missing env: GOOGLE_SPREADSHEET_ID')
+        if (!process.env.GOOGLE_DRIVE_FOLDER_ID) console.warn('[finance/submit] Missing env: GOOGLE_DRIVE_FOLDER_ID')
+        if (!process.env.MONGODB_URI) console.warn('[finance/submit] Missing env: MONGODB_URI')
+        if (!process.env.SLACK_BOT_TOKEN) console.warn('[finance/submit] Missing env: SLACK_BOT_TOKEN')
+
+        emit(controller, { error: err?.message ?? 'Something went wrong.' })
+      } finally {
+        controller.close()
+      }
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    },
+  })
 }

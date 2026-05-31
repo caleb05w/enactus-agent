@@ -11,10 +11,10 @@ export default function Home() {
       <div className="max-w-xl w-full space-y-8">
         <div className="space-y-3">
           <p className="text-xs font-medium tracking-widest text-zinc-400 uppercase">Enactus</p>
-          <h1 className="text-4xl font-semibold tracking-tight text-zinc-950">
+          <h1 className="text-4xl">
             Submit your project.
           </h1>
-          <p className="text-base text-zinc-500 leading-relaxed">
+          <p className="text-base">
             Share your idea, progress update, or supporting files with the Enactus team.
             Submissions go directly to our Slack channel for review.
           </p>

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { listEventFolders } from '@/lib/drive'
+import { listCalendarEvents } from '@/lib/calendar'
 
 export async function GET() {
   try {
-    const events = await listEventFolders()
+    const events = await listCalendarEvents()
     return NextResponse.json({ events })
   } catch (err) {
     console.error('[finance/events] Error:', err?.message ?? err)
