@@ -20,7 +20,7 @@ import fs from 'fs'
 
 const API_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 const RESULTS_FILE = path.join(process.cwd(), 'scripts', 'scrape-results.json')
-const CHROME_USER_DATA = path.join(os.homedir(), 'Library/Application Support/Google/Chrome')
+const CHROME_USER_DATA = path.join(os.homedir(), 'Library/Application Support/Google/Chrome/Profile 22')
 const RETRY_ATTEMPTS = 3
 const RETRY_DELAY_MS = 4000
 
