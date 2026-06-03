@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { connectDB } from '@/lib/mongodb'
+import Profile from '@/lib/models/Profile'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -50,15 +52,10 @@ export async function POST(req) {
     })
   }
 
-  let user, profile
+  let user
   try {
     user = await findSlackUser(text)
     if (!user) throw new Error('No user found')
-    profile = {
-      name: user.profile?.real_name || user.real_name || user.name,
-      title: user.profile?.title || '',
-      status: user.profile?.status_text || '',
-    }
   } catch (e) {
     return NextResponse.json({
       response_type: 'ephemeral',
@@ -66,18 +63,42 @@ export async function POST(req) {
     })
   }
 
-  const context = [
-    profile.title && `Title: ${profile.title}`,
-    profile.status && `Status: ${profile.status}`,
-    extra && `Extra context: ${extra}`,
-  ]
-    .filter(Boolean)
-    .join('\n')
+  const slackUsername = user.name
+  await connectDB()
+  const dbProfile = await Profile.findOne({ slackUsername }).lean()
 
-  const prompt = `You are a hype machine. Given someone's name and profile details, write an enthusiastic, over-the-top glaze (compliment) about them. Be specific to their actual details. Make it feel genuine, warm, and a little dramatic. 2-4 sentences max.
+  let prompt
+  if (dbProfile) {
+    const positions = dbProfile.positions
+      ?.slice(0, 3)
+      .map((p) => `- ${p.title} at ${p.company}${p.startDate ? ` (${p.startDate}${p.endDate ? ` – ${p.endDate}` : ' – present'})` : ''}`)
+      .join('\n') ?? ''
+    const education = dbProfile.education
+      ?.map((e) => `- ${e.degree ? `${e.degree}, ` : ''}${e.school}`)
+      .join('\n') ?? ''
+    const skills = dbProfile.skills?.slice(0, 10).join(', ') ?? ''
 
-Name: ${profile.name}
-${context}`
+    prompt = `You are a hype machine. Write an enthusiastic, over-the-top glaze (compliment) about this person based on their real accomplishments. Be specific, genuine, warm, and a little dramatic. 2-4 sentences max.
+
+Name: ${dbProfile.name}
+${dbProfile.headline ? `Headline: ${dbProfile.headline}` : ''}
+${dbProfile.summary ? `About: ${dbProfile.summary}` : ''}
+${positions ? `Experience:\n${positions}` : ''}
+${education ? `Education:\n${education}` : ''}
+${skills ? `Skills: ${skills}` : ''}
+${extra ? `Extra context: ${extra}` : ''}`
+  } else {
+    const slackName = user.profile?.real_name || user.real_name || user.name
+    const title = user.profile?.title || ''
+    const status = user.profile?.status_text || ''
+
+    prompt = `You are a hype machine. Write an enthusiastic, over-the-top glaze (compliment) about this person. Be specific, genuine, warm, and a little dramatic. 2-4 sentences max.
+
+Name: ${slackName}
+${title ? `Title: ${title}` : ''}
+${status ? `Status: ${status}` : ''}
+${extra ? `Extra context: ${extra}` : ''}`
+  }
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
