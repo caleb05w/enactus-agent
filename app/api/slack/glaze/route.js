@@ -3,20 +3,37 @@ import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-async function getSlackUser(userId) {
-  const res = await fetch(`https://slack.com/api/users.info?user=${userId}`, {
-    headers: { Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}` },
-  })
-  const data = await res.json()
-  if (!data.ok) throw new Error(`Slack users.info error: ${data.error}`)
-  return data.user
+async function findSlackUser(text) {
+  // Handle <@USERID> or <@USERID|username> format
+  const idMatch = text.match(/^<@([A-Z0-9]+)(?:\|[^>]+)?>/)
+  if (idMatch) {
+    const res = await fetch(`https://slack.com/api/users.info?user=${idMatch[1]}`, {
+      headers: { Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}` },
+    })
+    const data = await res.json()
+    if (!data.ok) throw new Error(`Slack users.info error: ${data.error}`)
+    return data.user
+  }
+
+  // Handle @username format — search users.list
+  const usernameMatch = text.match(/^@([\w.\-]+)/)
+  if (usernameMatch) {
+    const username = usernameMatch[1].toLowerCase()
+    const res = await fetch('https://slack.com/api/users.list', {
+      headers: { Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}` },
+    })
+    const data = await res.json()
+    if (!data.ok) throw new Error(`Slack users.list error: ${data.error}`)
+    const user = data.members.find((m) => m.name?.toLowerCase() === username)
+    if (!user) throw new Error(`User @${username} not found`)
+    return user
+  }
+
+  return null
 }
 
-function parseText(text = '') {
-  // Slack encodes mentions as <@USERID> or <@USERID|username>
-  const match = text.match(/^<@([A-Z0-9]+)(?:\|[^>]+)?>\s*(.*)$/)
-  if (!match) return { userId: null, extra: text.trim() }
-  return { userId: match[1], extra: match[2].trim() }
+function parseExtra(text = '') {
+  return text.replace(/^<@[A-Z0-9]+(?:\|[^>]+)?>/, '').replace(/^@[\w.\-]+/, '').trim()
 }
 
 export async function POST(req) {
@@ -24,27 +41,28 @@ export async function POST(req) {
   const params = new URLSearchParams(body)
   const text = params.get('text') ?? ''
 
-  const { userId, extra } = parseText(text)
+  const extra = parseExtra(text)
 
-  if (!userId) {
+  if (!text.trim()) {
     return NextResponse.json({
       response_type: 'ephemeral',
-      text: `Debug — raw text received: \`${text}\`\nUsage: \`/glaze @someone\` — tag a person to glaze them.`,
+      text: 'Usage: `/glaze @someone` — tag a person to glaze them.',
     })
   }
 
-  let profile
+  let user, profile
   try {
-    const user = await getSlackUser(userId)
+    user = await findSlackUser(text)
+    if (!user) throw new Error('No user found')
     profile = {
-      name: user.profile.real_name || user.real_name || user.name,
-      title: user.profile.title || '',
-      status: user.profile.status_text || '',
+      name: user.profile?.real_name || user.real_name || user.name,
+      title: user.profile?.title || '',
+      status: user.profile?.status_text || '',
     }
-  } catch {
+  } catch (e) {
     return NextResponse.json({
       response_type: 'ephemeral',
-      text: "Couldn't fetch that user's profile. Make sure the bot has `users:read` scope.",
+      text: `Couldn't find that user (${e.message}). Make sure the bot has \`users:read\` scope.`,
     })
   }
 
@@ -76,7 +94,7 @@ ${context}`
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `:fire: *Glazing <@${userId}>*\n\n${glaze}`,
+          text: `:fire: *Glazing <@${user.id}>*\n\n${glaze}`,
         },
       },
     ],
