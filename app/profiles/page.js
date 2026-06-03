@@ -62,7 +62,7 @@ function MemberRow({ member, profiled, onUpload, onDelete }) {
         {profiled && (
           <button onClick={() => onDelete(member.username)} className="text-xs text-zinc-300 hover:text-red-500 transition">✕</button>
         )}
-        <input ref={fileRef} type="file" accept=".zip" className="hidden" onChange={handleFile} />
+        <input ref={fileRef} type="file" accept=".zip,.pdf" className="hidden" onChange={handleFile} />
       </div>
     </div>
   )
@@ -92,7 +92,7 @@ function ProfileCard({ profile, member, onReplace, onDelete }) {
             Replace ZIP
           </button>
           <button onClick={() => onDelete(profile.slackUsername)} className="text-xs text-zinc-300 hover:text-red-500 transition">✕</button>
-          <input ref={fileRef} type="file" accept=".zip" className="hidden" onChange={handleFile} />
+          <input ref={fileRef} type="file" accept=".zip,.pdf" className="hidden" onChange={handleFile} />
         </div>
       </div>
 
