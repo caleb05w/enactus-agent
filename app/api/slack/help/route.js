@@ -22,6 +22,8 @@ export async function POST() {
           { type: 'mrkdwn', text: `<${process.env.NEXT_PUBLIC_APP_URL}/submit|Open submission form>` },
           { type: 'mrkdwn', text: '*🤖 Check bot status*' },
           { type: 'mrkdwn', text: 'Type `/ping`' },
+          { type: 'mrkdwn', text: '*🔥 Glaze someone*' },
+          { type: 'mrkdwn', text: 'Type `/glaze @someone`' },
         ],
       },
       {
