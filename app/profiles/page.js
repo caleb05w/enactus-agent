@@ -38,31 +38,65 @@ function useFileUpload(username, onDone) {
   return { status, error, fileRef, handleFile, trigger: () => fileRef.current?.click() }
 }
 
-function MemberRow({ member, profiled, onUpload, onDelete }) {
+function MemberRow({ member, profiled, savedUrl, onUpload, onDelete }) {
   const { status, error, fileRef, handleFile, trigger } = useFileUpload(member.username, onUpload)
+  const [url, setUrl] = useState(savedUrl ?? '')
+  const [urlStatus, setUrlStatus] = useState(null)
+
+  async function saveUrl() {
+    if (!url.trim()) return
+    setUrlStatus('saving')
+    const res = await fetch('/api/profiles/url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slackUsername: member.username, linkedinUrl: url.trim() }),
+    })
+    setUrlStatus(res.ok ? 'saved' : 'error')
+    setTimeout(() => setUrlStatus(null), 2000)
+  }
 
   return (
-    <div className="flex items-center gap-3 border border-zinc-100 rounded-lg px-4 py-3">
-      {member.avatar
-        ? <img src={member.avatar} alt="" className="w-8 h-8 rounded-full flex-shrink-0" />
-        : <div className="w-8 h-8 rounded-full bg-zinc-100 flex-shrink-0" />}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-zinc-900 truncate">{member.name}</p>
-        <p className="text-xs text-zinc-400 truncate">@{member.username}{member.title ? ` · ${member.title}` : ''}</p>
+    <div className="border border-zinc-100 rounded-lg px-4 py-3 space-y-2">
+      <div className="flex items-center gap-3">
+        {member.avatar
+          ? <img src={member.avatar} alt="" className="w-8 h-8 rounded-full flex-shrink-0" />
+          : <div className="w-8 h-8 rounded-full bg-zinc-100 flex-shrink-0" />}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-zinc-900 truncate">{member.name}</p>
+          <p className="text-xs text-zinc-400 truncate">@{member.username}{member.title ? ` · ${member.title}` : ''}</p>
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {status === 'uploading' && <span className="text-xs text-zinc-400">Uploading…</span>}
+          {status === 'done' && <span className="text-xs text-green-600">Saved</span>}
+          {status === 'error' && <span className="text-xs text-red-500">{error}</span>}
+          {profiled && status == null && <span className="text-xs text-emerald-600 font-medium">Profiled</span>}
+          <button onClick={trigger} disabled={status === 'uploading'}
+            className="text-xs rounded border border-zinc-200 px-2.5 py-1 text-zinc-600 hover:bg-zinc-50 transition disabled:opacity-40">
+            {profiled ? 'Update' : 'Upload PDF'}
+          </button>
+          {profiled && (
+            <button onClick={() => onDelete(member.username)} className="text-xs text-zinc-300 hover:text-red-500 transition">✕</button>
+          )}
+          <input ref={fileRef} type="file" accept=".zip,.pdf" className="hidden" onChange={handleFile} />
+        </div>
       </div>
-      <div className="flex items-center gap-3 flex-shrink-0">
-        {status === 'uploading' && <span className="text-xs text-zinc-400">Uploading…</span>}
-        {status === 'done' && <span className="text-xs text-green-600">Saved</span>}
-        {status === 'error' && <span className="text-xs text-red-500">{error}</span>}
-        {profiled && status == null && <span className="text-xs text-emerald-600 font-medium">Profiled</span>}
-        <button onClick={trigger} disabled={status === 'uploading'}
-          className="text-xs rounded border border-zinc-200 px-2.5 py-1 text-zinc-600 hover:bg-zinc-50 transition disabled:opacity-40">
-          {profiled ? 'Update' : 'Upload ZIP'}
+
+      <div className="flex gap-2 pl-11">
+        <input
+          type="url"
+          placeholder="linkedin.com/in/username"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && saveUrl()}
+          className="flex-1 rounded border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700 placeholder-zinc-300 outline-none focus:border-zinc-400 bg-white"
+        />
+        <button
+          onClick={saveUrl}
+          disabled={!url.trim() || urlStatus === 'saving'}
+          className="text-xs rounded border border-zinc-200 px-2.5 py-1.5 text-zinc-600 hover:bg-zinc-50 transition disabled:opacity-40 whitespace-nowrap"
+        >
+          {urlStatus === 'saving' ? 'Saving…' : urlStatus === 'saved' ? 'Saved ✓' : urlStatus === 'error' ? 'Error' : 'Save URL'}
         </button>
-        {profiled && (
-          <button onClick={() => onDelete(member.username)} className="text-xs text-zinc-300 hover:text-red-500 transition">✕</button>
-        )}
-        <input ref={fileRef} type="file" accept=".zip,.pdf" className="hidden" onChange={handleFile} />
       </div>
     </div>
   )
@@ -127,6 +161,7 @@ export default function ProfilesPage() {
   const [members, setMembers] = useState([])
   const [profiles, setProfiles] = useState([])
   const [profiledSet, setProfiledSet] = useState(new Set())
+  const [savedUrls, setSavedUrls] = useState({})
   const [pulling, setPulling] = useState(false)
   const [error, setError] = useState('')
   const [lastPull, setLastPull] = useState(null)
@@ -138,10 +173,14 @@ export default function ProfilesPage() {
   }, [])
 
   async function loadProfiles() {
-    const res = await fetch('/api/profiles')
-    const data = await res.json()
-    setProfiles(data)
-    setProfiledSet(new Set(data.map((p) => p.slackUsername)))
+    const [profilesRes, urlsRes] = await Promise.all([
+      fetch('/api/profiles'),
+      fetch('/api/profiles/url'),
+    ])
+    const [profilesData, urlsData] = await Promise.all([profilesRes.json(), urlsRes.json()])
+    setProfiles(profilesData)
+    setProfiledSet(new Set(profilesData.map((p) => p.slackUsername)))
+    setSavedUrls(Object.fromEntries(urlsData.map((u) => [u.slackUsername, u.linkedinUrl])))
   }
 
   async function pullMembers() {
@@ -229,7 +268,7 @@ export default function ProfilesPage() {
               <div className="space-y-2">
                 <h2 className="text-xs font-medium tracking-widest text-zinc-400 uppercase">Profiled · {profiled.length}</h2>
                 {profiled.map((m) => (
-                  <MemberRow key={m.id} member={m} profiled onUpload={loadProfiles} onDelete={handleDelete} />
+                  <MemberRow key={m.id} member={m} profiled savedUrl={savedUrls[m.username]} onUpload={loadProfiles} onDelete={handleDelete} />
                 ))}
               </div>
             )}
@@ -237,7 +276,7 @@ export default function ProfilesPage() {
               <div className="space-y-2">
                 <h2 className="text-xs font-medium tracking-widest text-zinc-400 uppercase">No profile · {unprofiled.length}</h2>
                 {unprofiled.map((m) => (
-                  <MemberRow key={m.id} member={m} profiled={false} onUpload={loadProfiles} onDelete={handleDelete} />
+                  <MemberRow key={m.id} member={m} profiled={false} savedUrl={savedUrls[m.username]} onUpload={loadProfiles} onDelete={handleDelete} />
                 ))}
               </div>
             )}
