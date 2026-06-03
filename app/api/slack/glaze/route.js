@@ -29,7 +29,7 @@ export async function POST(req) {
   if (!userId) {
     return NextResponse.json({
       response_type: 'ephemeral',
-      text: 'Usage: `/glaze @someone` — tag a person to glaze them.',
+      text: `Debug — raw text received: \`${text}\`\nUsage: \`/glaze @someone\` — tag a person to glaze them.`,
     })
   }
 
