@@ -82,33 +82,58 @@ function MemberRow({ member, profiled, onUpload, onDelete }) {
   )
 }
 
+const LAST_PULL_KEY = 'profiles-last-pull'
+
+function timeAgo(ts) {
+  if (!ts) return null
+  const diff = Math.floor((Date.now() - ts) / 1000)
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
 export default function ProfilesPage() {
   const [members, setMembers] = useState([])
   const [profiledSet, setProfiledSet] = useState(new Set())
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [pulling, setPulling] = useState(false)
   const [error, setError] = useState('')
+  const [lastPull, setLastPull] = useState(null)
 
-  async function load() {
-    setLoading(true)
+  useEffect(() => {
+    const stored = localStorage.getItem(LAST_PULL_KEY)
+    if (stored) setLastPull(Number(stored))
+  }, [])
+
+  async function loadProfiles() {
+    const res = await fetch('/api/profiles')
+    const data = await res.json()
+    setProfiledSet(new Set(data.map((p) => p.slackUsername)))
+  }
+
+  async function pullMembers() {
+    setPulling(true)
+    setError('')
     try {
-      const [membersRes, profilesRes] = await Promise.all([
+      const [membersRes] = await Promise.all([
         fetch('/api/slack/members'),
-        fetch('/api/profiles'),
+        loadProfiles(),
       ])
-      const [membersData, profilesData] = await Promise.all([
-        membersRes.json(),
-        profilesRes.json(),
-      ])
-      if (membersRes.ok) setMembers(membersData)
-      else setError(membersData.error ?? 'Failed to load members')
-      setProfiledSet(new Set(profilesData.map((p) => p.slackUsername)))
+      const membersData = await membersRes.json()
+      if (membersRes.ok) {
+        setMembers(membersData)
+        const now = Date.now()
+        setLastPull(now)
+        localStorage.setItem(LAST_PULL_KEY, String(now))
+      } else {
+        setError(membersData.error ?? 'Failed to load members')
+      }
     } catch {
       setError('Failed to load')
     }
-    setLoading(false)
+    setPulling(false)
   }
-
-  useEffect(() => { load() }, [])
 
   async function handleDelete(username) {
     await fetch('/api/profiles', {
@@ -116,7 +141,7 @@ export default function ProfilesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slackUsername: username }),
     })
-    await load()
+    await loadProfiles()
   }
 
   const profiled = members.filter((m) => profiledSet.has(m.username))
@@ -125,22 +150,40 @@ export default function ProfilesPage() {
   return (
     <main className="min-h-screen bg-white px-6 py-16">
       <div className="max-w-2xl mx-auto space-y-10">
-        <div className="space-y-2">
+        <div className="space-y-4">
           <Link href="/" className="text-xs font-medium tracking-widest text-zinc-400 uppercase hover:text-zinc-600">
             Enactus
           </Link>
-          <h1 className="text-3xl">Member Profiles</h1>
-          <p className="text-sm text-zinc-500">
-            Upload a LinkedIn data export for each member so{' '}
-            <code className="bg-zinc-100 px-1 rounded">/glaze</code> has rich context.
-            Get exports via LinkedIn → Settings → Data Privacy → Get a copy of your data.
-          </p>
+          <div className="flex items-end justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-3xl">Member Profiles</h1>
+              <p className="text-sm text-zinc-500">
+                Upload a LinkedIn data export per member so{' '}
+                <code className="bg-zinc-100 px-1 rounded">/glaze</code> has rich context.
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+              <button
+                onClick={pullMembers}
+                disabled={pulling}
+                className="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40"
+              >
+                {pulling ? 'Pulling…' : 'Pull members'}
+              </button>
+              {lastPull && (
+                <p className="text-xs text-zinc-400">Last pulled {timeAgo(lastPull)}</p>
+              )}
+            </div>
+          </div>
         </div>
 
-        {loading && <p className="text-sm text-zinc-400">Loading members…</p>}
         {error && <p className="text-sm text-red-500">{error}</p>}
 
-        {!loading && !error && (
+        {members.length === 0 && !pulling && (
+          <p className="text-sm text-zinc-400">Click "Pull members" to load your Slack workspace.</p>
+        )}
+
+        {members.length > 0 && (
           <>
             {profiled.length > 0 && (
               <div className="space-y-2">
@@ -152,7 +195,7 @@ export default function ProfilesPage() {
                     key={m.id}
                     member={m}
                     profiled
-                    onUpload={load}
+                    onUpload={loadProfiles}
                     onDelete={handleDelete}
                   />
                 ))}
@@ -169,7 +212,7 @@ export default function ProfilesPage() {
                     key={m.id}
                     member={m}
                     profiled={false}
-                    onUpload={load}
+                    onUpload={loadProfiles}
                     onDelete={handleDelete}
                   />
                 ))}
