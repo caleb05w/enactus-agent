@@ -72,7 +72,11 @@ async function buildAndSendGlaze(params, responseUrl) {
       .join('\n') ?? ''
     const skills = dbProfile.skills?.slice(0, 10).join(', ') ?? ''
 
-    prompt = `Write a Slack shoutout in absurdly over-the-top satirical corporate speak — think buzzword-obsessed middle manager who just discovered LinkedIn. Under 35 words. Pile on the jargon (synergize, leverage, paradigm, bandwidth, scalable, ecosystem, move the needle, circle back, etc.) but anchor the whole thing in one real specific fact from their profile — an actual role, company, or school. Rotate which fact you pick. Funny but still a genuine compliment.
+    prompt = `Write a Slack shoutout in satirical over-the-top corporate speak. Under 35 words. Anchor it in ONE real fact from their profile (a specific role, company, or school — pick a different one each time).
+
+BANNED words — do not use any of these: synergize, bandwidth, paradigm, ecosystem, "move the needle", "circle back", leverage, scalable, disruptive.
+
+Instead draw from the deep bench: thought leader, value proposition, core competency, stakeholder alignment, deliverable, ROI, ideate, blue-sky, mission-critical, best-in-class, proactive, holistic, agile, iterate, democratize, bleeding-edge, 360-degree, deep dive, low-hanging fruit, boil the ocean, peel back the onion, net-net, at the end of the day, going forward, actionable, granular, robust, seamless, win-win, quick win, value-add, strategic alignment, KPI, north star. Pick ones that fit and feel fresh — vary wildly each time.
 
 Name: ${dbProfile.name}
 ${dbProfile.headline ? `Headline: ${dbProfile.headline}` : ''}
@@ -85,7 +89,7 @@ ${extra ? `Extra context: ${extra}` : ''}`
     const title = user.profile?.title || ''
     const status = user.profile?.status_text || ''
 
-    prompt = `Write a Slack shoutout in absurdly over-the-top satirical corporate speak — buzzword-obsessed, jargon-heavy, but still a genuine compliment. Under 35 words. Funny and punchy.
+    prompt = `Write a Slack shoutout in satirical over-the-top corporate speak. Under 35 words. Funny, punchy, varied vocab — no synergize, bandwidth, paradigm, or ecosystem. Draw from: thought leader, value proposition, core competency, mission-critical, best-in-class, ideate, blue-sky, ROI, actionable, holistic, agile, net-net, north star, etc.
 
 Name: ${slackName}
 ${title ? `Title: ${title}` : ''}
