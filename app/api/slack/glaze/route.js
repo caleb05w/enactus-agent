@@ -74,7 +74,7 @@ async function buildAndSendGlaze(params, responseUrl) {
 
     prompt = `Write a Slack shoutout in satirical over-the-top corporate speak. Under 35 words. Anchor it in ONE real fact from their profile (a specific role, company, or school).
 
-Every output must feel completely unique — deliberately vary your word choices, sentence structure, and which buzzwords you reach for each time. Corporate jargon is a vast universe: thought leader, value proposition, core competency, stakeholder alignment, ROI, ideate, blue-sky, mission-critical, best-in-class, holistic, agile, net-net, north star, deliverable, actionable, granular, 360-degree, deep dive, low-hanging fruit, win-win, value-add, strategic alignment, KPI, boil the ocean, proactive, robust, seamless, bleeding-edge — treat this as a palette, not a script. No two glazes should sound alike.
+Every output must feel completely unique — deliberately vary your word choices, sentence structure, and which buzzwords you reach for each time. Never use the same word twice across consecutive glazes, and avoid defaulting to tired standbys like "paradigm" or "synergy". Corporate jargon is a vast universe: thought leader, value proposition, core competency, stakeholder alignment, ROI, ideate, blue-sky, mission-critical, best-in-class, holistic, agile, net-net, north star, deliverable, actionable, granular, 360-degree, deep dive, low-hanging fruit, win-win, value-add, strategic alignment, KPI, boil the ocean, proactive, robust, seamless, bleeding-edge — treat this as a palette, not a script. No two glazes should sound alike.
 
 Name: ${dbProfile.name}
 ${dbProfile.headline ? `Headline: ${dbProfile.headline}` : ''}
