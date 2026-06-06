@@ -31,7 +31,7 @@ async function checkSheets() {
 async function checkCalendar() {
   if (!process.env.GOOGLE_CALENDAR_ID) throw new Error('not configured')
   const calendar = google.calendar({ version: 'v3', auth: makeAuth(['https://www.googleapis.com/auth/calendar.readonly']) })
-  await calendar.calendars.get({ calendarId: process.env.GOOGLE_CALENDAR_ID })
+  await calendar.events.list({ calendarId: process.env.GOOGLE_CALENDAR_ID, maxResults: 1 })
 }
 
 function icon(result) {
