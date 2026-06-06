@@ -74,7 +74,21 @@ async function buildAndSendGlaze(params, responseUrl) {
 
     prompt = `Write a Slack shoutout in satirical over-the-top corporate speak. Under 35 words. Anchor it in ONE real fact from their profile (a specific role, company, or school).
 
-Every output must feel completely unique — deliberately vary your word choices, sentence structure, and which buzzwords you reach for each time. Never use the same word twice across consecutive glazes, and avoid defaulting to tired standbys like "paradigm" or "synergy". Corporate jargon is a vast universe: thought leader, value proposition, core competency, stakeholder alignment, ROI, ideate, blue-sky, mission-critical, best-in-class, holistic, agile, net-net, north star, deliverable, actionable, granular, 360-degree, deep dive, low-hanging fruit, win-win, value-add, strategic alignment, KPI, boil the ocean, proactive, robust, seamless, bleeding-edge — treat this as a palette, not a script. No two glazes should sound alike.
+Every output must feel completely unique — deliberately vary your word choices, sentence structure, and which buzzwords you reach for. Avoid defaulting to tired standbys. Draw from this wide palette and pick surprising combinations each time:
+
+Strategy & vision: thought leader, north star, value proposition, strategic alignment, go-to-market, flywheel, inflection point, hockey-stick growth, market mover, category-defining, whitespace, greenfield, defensible moat, differentiated, top-line, bottom-line, P&L impact, TAM, land and expand, product-market fit, blue-sky, moonshot, 10x thinking, big swing, bold bet
+
+Execution & process: mission-critical, deliverable, KPI, OKR, roadmap, cadence, velocity, throughput, sprint, milestone, action item, RACI, ownership, accountability, next steps, checkpoint, post-mortem, retrospective, center of excellence, playbook, framework, lever, dial, tiger team, task force, proof of concept, MVP, pilot, incubate
+
+Quality & performance: best-in-class, world-class, bar-raising, gold standard, benchmark, industry-leading, cutting-edge, state-of-the-art, top-tier, high-impact, high-caliber, high-velocity, overdeliver, exceed expectations, exceptional, distinguished, exemplary, elite, above and beyond, stellar
+
+People & culture: high-performer, high-potential, HiPo, growth mindset, grit, bias for action, ownership mentality, customer obsession, results-oriented, T-shaped, generalizing specialist, cross-pollinate, dot connector, bridge builder, change agent, catalyst, champion, evangelist, intrapreneur, culture add, talent magnet, force multiplier, people-first
+
+Consulting & analysis: ROI, net-net, holistic, granular, 360-degree, deep dive, peel back the onion, boil the ocean, low-hanging fruit, actionable insight, data-driven, evidence-based, hypothesis-driven, test-and-learn, right-size, rationalize, streamline, unlock, harness, capitalize, optimize, accelerate, commercialize, productize, monetize
+
+Adjectives: agile, nimble, scrappy, robust, seamless, frictionless, end-to-end, enterprise-grade, future-proof, future-ready, bleeding-edge, cloud-native, AI-powered, human-centered, customer-centric, purpose-driven, impact-driven, outcome-based, proactive, resilient, adaptable, lean, resourceful, win-win, value-add, scalable, best-of-breed, seamless, holistic, blue-chip
+
+No two glazes should sound alike. Treat this as a palette, not a script — pick unexpected combos.
 
 Name: ${dbProfile.name}
 ${dbProfile.headline ? `Headline: ${dbProfile.headline}` : ''}
@@ -87,7 +101,7 @@ ${extra ? `Extra context: ${extra}` : ''}`
     const title = user.profile?.title || ''
     const status = user.profile?.status_text || ''
 
-    prompt = `Write a Slack shoutout in satirical over-the-top corporate speak. Under 35 words. Every output must feel completely unique — vary word choices, structure, and buzzwords every time. Treat corporate jargon as a wide palette, not a fixed script.
+    prompt = `Write a Slack shoutout in satirical over-the-top corporate speak. Under 35 words. Every output must feel completely unique — vary word choices, structure, and buzzwords every time. Draw from a wide palette: north star, flywheel, bar-raising, HiPo, bias for action, frictionless, go-to-market, post-mortem, tiger team, blue-chip, moonshot, force multiplier, dot connector, test-and-learn, future-proof, etc. Treat it as a palette not a script.
 
 Name: ${slackName}
 ${title ? `Title: ${title}` : ''}
