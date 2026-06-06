@@ -72,12 +72,12 @@ function MemberRow({ member, profiled, savedUrl, onUpload, onDelete }) {
           {profiled && status == null && <span className="text-xs text-emerald-600 font-medium">Profiled</span>}
           <button onClick={trigger} disabled={status === 'uploading'}
             className="text-xs rounded border border-zinc-200 px-2.5 py-1 text-zinc-600 hover:bg-zinc-50 transition disabled:opacity-40">
-            {profiled ? 'Update' : 'Upload PDF'}
+            {profiled ? 'Update' : 'Upload'}
           </button>
           {profiled && (
             <button onClick={() => onDelete(member.username)} className="text-xs text-zinc-300 hover:text-red-500 transition">✕</button>
           )}
-          <input ref={fileRef} type="file" accept=".zip,.pdf" className="hidden" onChange={handleFile} />
+          <input ref={fileRef} type="file" accept=".zip,.pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={handleFile} />
         </div>
       </div>
 
@@ -123,10 +123,10 @@ function ProfileCard({ profile, member, onReplace, onDelete }) {
           {status === 'error' && <span className="text-xs text-red-500">{error}</span>}
           <button onClick={trigger} disabled={status === 'uploading'}
             className="text-xs rounded border border-zinc-200 px-2.5 py-1 text-zinc-600 hover:bg-zinc-50 transition disabled:opacity-40">
-            Replace ZIP
+            Replace
           </button>
           <button onClick={() => onDelete(profile.slackUsername)} className="text-xs text-zinc-300 hover:text-red-500 transition">✕</button>
-          <input ref={fileRef} type="file" accept=".zip,.pdf" className="hidden" onChange={handleFile} />
+          <input ref={fileRef} type="file" accept=".zip,.pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={handleFile} />
         </div>
       </div>
 
@@ -233,7 +233,7 @@ export default function ProfilesPage() {
             <div className="space-y-1">
               <h1 className="text-3xl">Member Profiles</h1>
               <p className="text-sm text-zinc-500">
-                Upload LinkedIn exports so <code className="bg-zinc-100 px-1 rounded">/glaze</code> has rich context.
+                Upload a LinkedIn screenshot, PDF, or export ZIP so <code className="bg-zinc-100 px-1 rounded">/glaze</code> has rich context.
               </p>
             </div>
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
