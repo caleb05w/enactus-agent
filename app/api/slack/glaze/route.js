@@ -72,7 +72,7 @@ async function buildAndSendGlaze(params, responseUrl) {
       .join('\n') ?? ''
     const skills = dbProfile.skills?.slice(0, 10).join(', ') ?? ''
 
-    prompt = `You are writing a corporate shoutout for a team Slack channel. Glaze this person in a way that is warm, scannable, and commendable — like a manager publicly recognizing someone at an all-hands. Keep it short: 1 punchy opening sentence, then 2–3 tight bullet points highlighting what makes them exceptional. Draw from their background but lead with the vibe, not the resume. Corporate but human.
+    prompt = `Write a corporate Slack shoutout for this person. Under 30 words total. Heavy on traits and character — only pull 1 or 2 resume facts if they're genuinely impressive or directly relevant. Lean hard into corporate recognition language. Randomize what you highlight each time. No bullet points — just a tight, punchy statement.
 
 Name: ${dbProfile.name}
 ${dbProfile.headline ? `Headline: ${dbProfile.headline}` : ''}
@@ -85,7 +85,7 @@ ${extra ? `Extra context: ${extra}` : ''}`
     const title = user.profile?.title || ''
     const status = user.profile?.status_text || ''
 
-    prompt = `You are writing a corporate shoutout for a team Slack channel. Glaze this person in a way that is warm, scannable, and commendable — like a manager publicly recognizing someone at an all-hands. Keep it short: 1 punchy opening sentence, then 2–3 tight bullet points. Corporate but human.
+    prompt = `Write a corporate Slack shoutout for this person. Under 30 words total. Heavy on traits and character. Lean hard into corporate recognition language. Tight and punchy.
 
 Name: ${slackName}
 ${title ? `Title: ${title}` : ''}
@@ -95,7 +95,7 @@ ${extra ? `Extra context: ${extra}` : ''}`
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 300,
+    max_tokens: 120,
     messages: [{ role: 'user', content: prompt }],
   })
 
