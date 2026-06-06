@@ -72,11 +72,10 @@ async function buildAndSendGlaze(params, responseUrl) {
       .join('\n') ?? ''
     const skills = dbProfile.skills?.slice(0, 10).join(', ') ?? ''
 
-    prompt = `You are writing a professional corporate-style commendation for a team standup or recognition channel. Write exactly 2 sentences glazing this person — make it sound like a LinkedIn recommendation crossed with an awards ceremony. Use specific facts from their profile (roles, companies, schools, skills). No fluff, no filler — every word must be backed by something real from their background.
+    prompt = `You are writing a corporate shoutout for a team Slack channel. Glaze this person in a way that is warm, scannable, and commendable — like a manager publicly recognizing someone at an all-hands. Keep it short: 1 punchy opening sentence, then 2–3 tight bullet points highlighting what makes them exceptional. Draw from their background but lead with the vibe, not the resume. Corporate but human.
 
 Name: ${dbProfile.name}
 ${dbProfile.headline ? `Headline: ${dbProfile.headline}` : ''}
-${dbProfile.summary ? `About: ${dbProfile.summary}` : ''}
 ${positions ? `Experience:\n${positions}` : ''}
 ${education ? `Education:\n${education}` : ''}
 ${skills ? `Skills: ${skills}` : ''}
@@ -86,7 +85,7 @@ ${extra ? `Extra context: ${extra}` : ''}`
     const title = user.profile?.title || ''
     const status = user.profile?.status_text || ''
 
-    prompt = `You are writing a professional corporate-style commendation for a team standup or recognition channel. Write exactly 2 sentences glazing this person — make it sound like a LinkedIn recommendation crossed with an awards ceremony. Be specific and grounded in any facts available.
+    prompt = `You are writing a corporate shoutout for a team Slack channel. Glaze this person in a way that is warm, scannable, and commendable — like a manager publicly recognizing someone at an all-hands. Keep it short: 1 punchy opening sentence, then 2–3 tight bullet points. Corporate but human.
 
 Name: ${slackName}
 ${title ? `Title: ${title}` : ''}
@@ -96,7 +95,7 @@ ${extra ? `Extra context: ${extra}` : ''}`
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 200,
+    max_tokens: 300,
     messages: [{ role: 'user', content: prompt }],
   })
 
