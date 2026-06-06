@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { connectDB } from '@/lib/mongodb'
@@ -6,7 +7,6 @@ import Profile from '@/lib/models/Profile'
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 async function findSlackUser(text) {
-  // Handle <@USERID> or <@USERID|username> format
   const idMatch = text.match(/^<@([A-Z0-9]+)(?:\|[^>]+)?>/)
   if (idMatch) {
     const res = await fetch(`https://slack.com/api/users.info?user=${idMatch[1]}`, {
@@ -17,7 +17,6 @@ async function findSlackUser(text) {
     return data.user
   }
 
-  // Handle @username format — search users.list
   const usernameMatch = text.match(/^@([\w.\-]+)/)
   if (usernameMatch) {
     const username = usernameMatch[1].toLowerCase()
@@ -38,29 +37,24 @@ function parseExtra(text = '') {
   return text.replace(/^<@[A-Z0-9]+(?:\|[^>]+)?>/, '').replace(/^@[\w.\-]+/, '').trim()
 }
 
-export async function POST(req) {
-  const body = await req.text()
-  const params = new URLSearchParams(body)
+async function buildAndSendGlaze(params, responseUrl) {
   const text = params.get('text') ?? ''
-
   const extra = parseExtra(text)
-
-  if (!text.trim()) {
-    return NextResponse.json({
-      response_type: 'ephemeral',
-      text: 'Usage: `/glaze @someone` — tag a person to glaze them.',
-    })
-  }
 
   let user
   try {
     user = await findSlackUser(text)
     if (!user) throw new Error('No user found')
   } catch (e) {
-    return NextResponse.json({
-      response_type: 'ephemeral',
-      text: `Couldn't find that user (${e.message}). Make sure the bot has \`users:read\` scope.`,
+    await fetch(responseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        response_type: 'ephemeral',
+        text: `Couldn't find that user (${e.message}). Make sure the bot has \`users:read\` scope.`,
+      }),
     })
+    return
   }
 
   const slackUsername = user.name
@@ -68,7 +62,7 @@ export async function POST(req) {
   const dbProfile = await Profile.findOne({ slackUsername }).lean()
 
   let prompt
-  if (dbProfile) {
+  if (dbProfile?.positions?.length || dbProfile?.headline) {
     const positions = dbProfile.positions
       ?.slice(0, 3)
       .map((p) => `- ${p.title} at ${p.company}${p.startDate ? ` (${p.startDate}${p.endDate ? ` – ${p.endDate}` : ' – present'})` : ''}`)
@@ -78,7 +72,7 @@ export async function POST(req) {
       .join('\n') ?? ''
     const skills = dbProfile.skills?.slice(0, 10).join(', ') ?? ''
 
-    prompt = `You are a hype machine. Write an enthusiastic, over-the-top glaze (compliment) about this person based on their real accomplishments. Be specific, genuine, warm, and a little dramatic. 2-4 sentences max.
+    prompt = `You are writing a professional corporate-style commendation for a team standup or recognition channel. Write exactly 2 sentences glazing this person — make it sound like a LinkedIn recommendation crossed with an awards ceremony. Use specific facts from their profile (roles, companies, schools, skills). No fluff, no filler — every word must be backed by something real from their background.
 
 Name: ${dbProfile.name}
 ${dbProfile.headline ? `Headline: ${dbProfile.headline}` : ''}
@@ -92,7 +86,7 @@ ${extra ? `Extra context: ${extra}` : ''}`
     const title = user.profile?.title || ''
     const status = user.profile?.status_text || ''
 
-    prompt = `You are a hype machine. Write an enthusiastic, over-the-top glaze (compliment) about this person. Be specific, genuine, warm, and a little dramatic. 2-4 sentences max.
+    prompt = `You are writing a professional corporate-style commendation for a team standup or recognition channel. Write exactly 2 sentences glazing this person — make it sound like a LinkedIn recommendation crossed with an awards ceremony. Be specific and grounded in any facts available.
 
 Name: ${slackName}
 ${title ? `Title: ${title}` : ''}
@@ -102,22 +96,46 @@ ${extra ? `Extra context: ${extra}` : ''}`
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 256,
+    max_tokens: 200,
     messages: [{ role: 'user', content: prompt }],
   })
 
   const glaze = message.content[0].text
 
-  return NextResponse.json({
-    response_type: 'in_channel',
-    blocks: [
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `:fire: *Glazing <@${user.id}>*\n\n${glaze}`,
+  await fetch(responseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      response_type: 'in_channel',
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `:fire: *Glazing <@${user.id}>*\n\n${glaze}`,
+          },
         },
-      },
-    ],
+      ],
+    }),
   })
+}
+
+export async function POST(req) {
+  const body = await req.text()
+  const params = new URLSearchParams(body)
+  const text = params.get('text') ?? ''
+  const responseUrl = params.get('response_url')
+
+  if (!text.trim()) {
+    return NextResponse.json({
+      response_type: 'ephemeral',
+      text: 'Usage: `/glaze @someone` — tag a person to glaze them.',
+    })
+  }
+
+  // Respond to Slack immediately to avoid the 3-second timeout,
+  // then do the actual work after the response is sent
+  after(() => buildAndSendGlaze(params, responseUrl))
+
+  return NextResponse.json({ response_type: 'ephemeral', text: ':fire: Glazing...' })
 }
