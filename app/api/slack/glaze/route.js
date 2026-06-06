@@ -72,7 +72,7 @@ async function buildAndSendGlaze(params, responseUrl) {
       .join('\n') ?? ''
     const skills = dbProfile.skills?.slice(0, 10).join(', ') ?? ''
 
-    prompt = `Write a corporate Slack recognition shoutout. Under 35 words. Lead with a strong trait or quality, then immediately ground it in a specific real fact — name an actual role, company, or school from their profile. Rotate which fact you pick each time. Corporate tone, no filler. One tight statement, no bullets.
+    prompt = `Write a Slack shoutout in absurdly over-the-top satirical corporate speak — think buzzword-obsessed middle manager who just discovered LinkedIn. Under 35 words. Pile on the jargon (synergize, leverage, paradigm, bandwidth, scalable, ecosystem, move the needle, circle back, etc.) but anchor the whole thing in one real specific fact from their profile — an actual role, company, or school. Rotate which fact you pick. Funny but still a genuine compliment.
 
 Name: ${dbProfile.name}
 ${dbProfile.headline ? `Headline: ${dbProfile.headline}` : ''}
@@ -85,7 +85,7 @@ ${extra ? `Extra context: ${extra}` : ''}`
     const title = user.profile?.title || ''
     const status = user.profile?.status_text || ''
 
-    prompt = `Write a corporate Slack recognition shoutout. Under 35 words. Lead with a strong trait, anchor it in any available fact. Corporate tone, tight and punchy.
+    prompt = `Write a Slack shoutout in absurdly over-the-top satirical corporate speak — buzzword-obsessed, jargon-heavy, but still a genuine compliment. Under 35 words. Funny and punchy.
 
 Name: ${slackName}
 ${title ? `Title: ${title}` : ''}
