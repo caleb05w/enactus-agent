@@ -52,6 +52,20 @@ function formatEventDate(d) {
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+// Tags where an event came from: the team calendar vs a custom/saved event.
+function SourceBadge({ source }) {
+  const isCalendar = source === 'calendar'
+  return (
+    <span
+      className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+        isCalendar ? 'bg-zinc-100 text-zinc-600' : 'border border-zinc-200 text-zinc-400'
+      }`}
+    >
+      {isCalendar ? 'Calendar' : 'Custom'}
+    </span>
+  )
+}
+
 function EventSearch({ events, value, onChange, hasError }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -170,7 +184,10 @@ function EventSearch({ events, value, onChange, hasError }) {
                     className="flex items-center justify-between gap-3 px-3.5 py-2 text-sm cursor-pointer hover:bg-white text-zinc-700"
                   >
                     <span className="truncate">{highlightMatch(ev.name, query)}</span>
-                    {ev.date && <span className="flex-shrink-0 text-xs text-zinc-400">{formatEventDate(ev.date)}</span>}
+                    <span className="flex flex-shrink-0 items-center gap-2">
+                      <SourceBadge source={ev.source} />
+                      {ev.date && <span className="text-xs text-zinc-400">{formatEventDate(ev.date)}</span>}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -215,7 +232,10 @@ function EventSearch({ events, value, onChange, hasError }) {
                       className="flex items-center justify-between gap-3 px-3.5 py-2 text-sm cursor-pointer hover:bg-white text-zinc-700"
                     >
                       <span className="truncate">{ev.name}</span>
-                      {ev.date && <span className="flex-shrink-0 text-xs text-zinc-400">{formatEventDate(ev.date)}</span>}
+                      <span className="flex flex-shrink-0 items-center gap-2">
+                        <SourceBadge source={ev.source} />
+                        {ev.date && <span className="text-xs text-zinc-400">{formatEventDate(ev.date)}</span>}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -534,7 +554,7 @@ export default function FinancePage() {
             const isNew = !events.some((e) => e.name.toLowerCase() === name.toLowerCase())
             if (isNew) {
               const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Vancouver' })
-              setEvents((prev) => [{ name, date: today }, ...prev])
+              setEvents((prev) => [{ name, date: today, source: 'custom' }, ...prev])
             }
             submissionId.current = crypto.randomUUID()
             localStorage.removeItem(DRAFT_KEY)

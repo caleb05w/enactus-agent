@@ -19,11 +19,21 @@ export async function GET() {
       }),
     ])
 
-    const byName = new Map() // lowercased name -> { name, date }
+    const byName = new Map() // lowercased name -> { name, date, source }
     for (const ev of [...calendar, ...folders]) {
       const key = ev.name.toLowerCase()
       const existing = byName.get(key)
-      if (!existing || (ev.date || '') > (existing.date || '')) byName.set(key, ev)
+      if (!existing) {
+        byName.set(key, ev)
+        continue
+      }
+      // Same event from both sources: it's on the calendar (the salient fact),
+      // and we keep the most recent known date.
+      byName.set(key, {
+        name: existing.name,
+        date: (ev.date || '') > (existing.date || '') ? ev.date : existing.date,
+        source: existing.source === 'calendar' || ev.source === 'calendar' ? 'calendar' : existing.source,
+      })
     }
 
     const events = [...byName.values()].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
