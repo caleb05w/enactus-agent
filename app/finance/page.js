@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { findSimilar } from '@/lib/similarity'
 
@@ -28,6 +28,44 @@ function fieldCls(hasError) {
   return hasError ? inputErrorClass : inputClass
 }
 
+// Wraps the matched substring of `text` in a subtle highlight.
+function highlightMatch(text, query) {
+  const q = query.trim()
+  if (!q) return text
+  const idx = text.toLowerCase().indexOf(q.toLowerCase())
+  if (idx === -1) return text
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="rounded-sm bg-zinc-200 px-0.5 font-medium text-zinc-900">
+        {text.slice(idx, idx + q.length)}
+      </mark>
+      {text.slice(idx + q.length)}
+    </>
+  )
+}
+
+function formatEventDate(d) {
+  if (!d) return ''
+  const dt = new Date(`${d}T00:00:00`)
+  if (isNaN(dt)) return ''
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// Tags where an event came from: the team calendar vs a custom/saved event.
+function SourceBadge({ source }) {
+  const isCalendar = source === 'calendar'
+  return (
+    <span
+      className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+        isCalendar ? 'bg-zinc-100 text-zinc-600' : 'border border-zinc-200 text-zinc-400'
+      }`}
+    >
+      {isCalendar ? 'Calendar' : 'Custom'}
+    </span>
+  )
+}
+
 function EventSearch({ events, value, onChange, hasError }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -36,6 +74,8 @@ function EventSearch({ events, value, onChange, hasError }) {
   const [recents, setRecents] = useState([])
   const [duplicates, setDuplicates] = useState([])
   const containerRef = useRef(null)
+
+  const eventNames = useMemo(() => events.map((e) => e.name), [events])
 
   useEffect(() => {
     function handler(e) {
@@ -82,21 +122,21 @@ function EventSearch({ events, value, onChange, hasError }) {
     if (!name) return
 
     // Exact case-insensitive match → silently use the existing event
-    const exact = events.find(
+    const exact = eventNames.find(
       (ev) => ev.toLowerCase().trim() === name.toLowerCase()
     )
     if (exact) { select(exact); return }
 
     // Fuzzy match — show warning if anything is close enough
-    const matches = findSimilar(name, events)
+    const matches = findSimilar(name, eventNames)
     if (matches.length > 0) { setDuplicates(matches); return }
 
     select(name)
   }
 
-  const filtered = query.trim()
-    ? events.filter((ev) => ev.toLowerCase().includes(query.toLowerCase()))
-    : []
+  const q = query.trim().toLowerCase()
+  const filtered = q ? events.filter((ev) => ev.name.toLowerCase().includes(q)) : []
+  const latest = events.slice(0, 6)
 
   return (
     <div ref={containerRef}>
@@ -135,15 +175,19 @@ function EventSearch({ events, value, onChange, hasError }) {
           <div className="space-y-3 pt-3 pb-0.5">
 
             {/* Search results */}
-            {filtered.length > 0 && (
+            {query.trim() && filtered.length > 0 && (
               <ul className="rounded-md border border-zinc-100 bg-zinc-50 divide-y divide-zinc-100 overflow-hidden">
                 {filtered.map((ev) => (
                   <li
-                    key={ev}
-                    onClick={() => select(ev)}
-                    className="px-3.5 py-2 text-sm cursor-pointer hover:bg-white text-zinc-700"
+                    key={ev.name}
+                    onClick={() => select(ev.name)}
+                    className="flex items-center justify-between gap-3 px-3.5 py-2 text-sm cursor-pointer hover:bg-white text-zinc-700"
                   >
-                    {ev}
+                    <span className="truncate">{highlightMatch(ev.name, query)}</span>
+                    <span className="flex flex-shrink-0 items-center gap-2">
+                      <SourceBadge source={ev.source} />
+                      {ev.date && <span className="text-xs text-zinc-400">{formatEventDate(ev.date)}</span>}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -153,28 +197,53 @@ function EventSearch({ events, value, onChange, hasError }) {
               <p className="text-xs text-zinc-400">No events match &ldquo;{query}&rdquo;</p>
             )}
 
-            {/* Recent events */}
+            {/* Recently used (this device) */}
             {!query.trim() && recents.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {recents.map((ev) => (
-                  <button
-                    key={ev}
-                    type="button"
-                    onClick={() => select(ev)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
-                      value === ev
-                        ? 'bg-zinc-900 text-white border-zinc-900'
-                        : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900'
-                    }`}
-                  >
-                    {ev}
-                  </button>
-                ))}
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-zinc-400">Recently used</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {recents.map((ev) => (
+                    <button
+                      key={ev}
+                      type="button"
+                      onClick={() => select(ev)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+                        value === ev
+                          ? 'bg-zinc-900 text-white border-zinc-900'
+                          : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900'
+                      }`}
+                    >
+                      {ev}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
-            {!query.trim() && recents.length === 0 && (
-              <p className="text-xs text-zinc-400">No recent events yet.</p>
+            {/* Latest Events-team events (±1 month) */}
+            {!query.trim() && latest.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-zinc-400">Latest events</p>
+                <ul className="rounded-md border border-zinc-100 bg-zinc-50 divide-y divide-zinc-100 overflow-hidden">
+                  {latest.map((ev) => (
+                    <li
+                      key={ev.name}
+                      onClick={() => select(ev.name)}
+                      className="flex items-center justify-between gap-3 px-3.5 py-2 text-sm cursor-pointer hover:bg-white text-zinc-700"
+                    >
+                      <span className="truncate">{ev.name}</span>
+                      <span className="flex flex-shrink-0 items-center gap-2">
+                        <SourceBadge source={ev.source} />
+                        {ev.date && <span className="text-xs text-zinc-400">{formatEventDate(ev.date)}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {!query.trim() && latest.length === 0 && (
+              <p className="text-xs text-zinc-400">No recent events from the Events team.</p>
             )}
 
             {/* New event / duplicate warning */}
@@ -321,7 +390,7 @@ export default function FinancePage() {
   useEffect(() => {
     fetch('/api/finance/events')
       .then((r) => r.json())
-      .then((data) => setEvents((data.events ?? []).sort()))
+      .then((data) => setEvents(data.events ?? []))
       .catch(() => setEvents([]))
   }, [])
 
@@ -481,8 +550,12 @@ export default function FinancePage() {
           if (payload.done) {
             setCurrentStep(STEPS.length)
             setSuccessSummary(payload.summary)
-            const isNew = !events.includes(eventValue.trim())
-            if (isNew) setEvents((prev) => [...prev, eventValue.trim()].sort())
+            const name = eventValue.trim()
+            const isNew = !events.some((e) => e.name.toLowerCase() === name.toLowerCase())
+            if (isNew) {
+              const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Vancouver' })
+              setEvents((prev) => [{ name, date: today, source: 'custom' }, ...prev])
+            }
             submissionId.current = crypto.randomUUID()
             localStorage.removeItem(DRAFT_KEY)
             setForm((prev) => ({
