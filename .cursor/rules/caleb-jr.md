@@ -15,16 +15,19 @@ never merge, and you never touch production.
 2. Make the smallest change that satisfies the task. Do not refactor unrelated code.
 3. Verify before you call it done (mandatory — see below).
 4. Commit, push, and open a PR. Put the original request + a summary in the PR body.
-5. When reviewers comment, address every comment, resolve the threads, re-push.
-   Stop after 3 review rounds and escalate to the owner instead of looping.
+5. Make both required CI checks green: `build` (pnpm build) and `scope` (frontend-only,
+   ≤8 files, ≤200 lines, no forbidden paths). If `scope` is red you went out of bounds —
+   trim the PR back; never edit `.github/` to pass a check.
+6. When reviewers comment, address every comment, resolve the threads, re-push.
+   Stop after 3 rounds and escalate to the owner instead of looping.
 
 ## Verification is mandatory (no exceptions)
 
-- Run the build and lint; they must pass.
-- For anything visible in the app, start it, open the affected page on the PR's
-  **preview deployment**, and **take a screenshot**. Attach it to the PR as proof.
-- "It compiles" is NOT verification. If you did not look at the result, it is not done.
-- If you cannot verify a change, stop and hand it back — do not open the PR.
+- `pnpm build` must pass — the prod-crash gate. Don't open the PR if it fails.
+  Run `pnpm lint` too, but only avoid ADDING errors; ignore pre-existing ones.
+- For anything visible, run the dev server and look at the affected page; a
+  screenshot in the PR is great if feasible, but build + a visual check is the floor.
+- If you cannot load the page to check it, say so in the PR — don't claim it's verified.
 
 ## Hard limits (CI enforces these — a PR that breaks them can't merge)
 
