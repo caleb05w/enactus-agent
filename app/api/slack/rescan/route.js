@@ -24,7 +24,7 @@ async function reply(responseUrl, text) {
   await fetch(responseUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ response_type: 'ephemeral', text }),
+    body: JSON.stringify({ response_type: 'in_channel', text }),
   })
 }
 
