@@ -1,0 +1,59 @@
+name: PR Guardrails
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Hard gate: the app must compile, or it could crash production.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # Informational only — the repo has pre-existing lint errors, so don't block on them.
+      - run: pnpm lint
+        continue-on-error: true
+
+  scope:
+    # Hard gate: keep agent PRs to small, frontend-only diffs.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce scope
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          files=$(git diff --name-only "$base" HEAD)
+          echo "Changed files:"; echo "$files"
+
+          # Forbidden paths — backend, secrets, deps, CI, data.
+          deny='^(\.env|package\.json|pnpm-lock\.yaml|vercel\.json|next\.config|postcss\.config|eslint\.config|\.github/|app/api/|lib/|scripts/|public/ET-data/)'
+          bad=$(echo "$files" | grep -E "$deny" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::PR touches forbidden (backend/secret/CI/dep) paths:"; echo "$bad"; exit 1
+          fi
+
+          # File-count cap.
+          n=$(echo "$files" | grep -c . || true)
+          if [ "$n" -gt 8 ]; then
+            echo "::error::Too many files changed ($n > 8). Keep agent PRs small."; exit 1
+          fi
+
+          # Total changed-line cap.
+          lines=$(git diff --numstat "$base" HEAD | awk '{a+=$1+$2} END{print a+0}')
+          if [ "$lines" -gt 200 ]; then
+            echo "::error::Diff too large ($lines lines > 200). Keep agent PRs small."; exit 1
+          fi
+
+          echo "Scope OK: $n files, $lines changed lines."
