@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { runScan, processApprovals, getAgentControl } from '@/lib/calebjr/diagnose'
+import { runScan, advancePipeline, getAgentControl } from '@/lib/calebjr/diagnose'
 
 // Cron entry point (Vercel runs this on the schedule in vercel.json).
 export async function GET(req) {
@@ -18,10 +18,11 @@ export async function GET(req) {
   const { mode, enabled } = await getAgentControl()
   if (!enabled) return NextResponse.json({ skipped: 'disabled (agentEnabled=false)' })
 
-  // Pre-phase: act on approval cards the owner reacted to since last run.
-  const approvals = mode === 'live' ? await processApprovals() : { dispatched: 0, rejected: 0, pending: 0 }
+  // Pre-phase (live only): act on ✅/❌ approvals (launch agents) and report
+  // back any agents that finished since the last run.
+  const pipeline = mode === 'live' ? await advancePipeline() : null
 
   const s = await runScan({ advanceCursor: true, label: 'diagnostic run' })
 
-  return NextResponse.json({ ...s, approvals })
+  return NextResponse.json({ ...s, pipeline })
 }

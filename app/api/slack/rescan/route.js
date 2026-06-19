@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import crypto from 'crypto'
-import { runScan } from '@/lib/calebjr/diagnose'
+import { runScan, advancePipeline, getAgentControl } from '@/lib/calebjr/diagnose'
 
 // Verify the request really came from Slack (HMAC over the raw body).
 function verifySlack(rawBody, headers) {
@@ -50,6 +50,9 @@ export async function POST(req) {
   // Respond within Slack's 3s window, then do the scan in the background.
   after(async () => {
     try {
+      // Push the pipeline forward too: launch any ✅'d tasks, report finished agents.
+      const { mode } = await getAgentControl()
+      if (mode === 'live') await advancePipeline()
       const s = await runScan({ oldestOverride: oldest, advanceCursor: false, maxPerSource: 200, label: `rescan last ${days}d` })
       await reply(
         responseUrl,
