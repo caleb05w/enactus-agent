@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { runScan, processApprovals } from '@/lib/calebjr/diagnose'
+import { runScan, processApprovals, getAgentControl } from '@/lib/calebjr/diagnose'
 
 // Cron entry point (Vercel runs this on the schedule in vercel.json).
 export async function GET(req) {
@@ -11,18 +11,15 @@ export async function GET(req) {
     }
   }
 
-  if (process.env.AGENT_ENABLED === 'false') {
-    return NextResponse.json({ skipped: 'disabled (AGENT_ENABLED=false)' })
-  }
   if (!process.env.CALEB_JR_BOT_TOKEN || !process.env.CALEB_JR_USER_TOKEN) {
     return NextResponse.json({ error: 'Caleb Jr tokens not set' }, { status: 500 })
   }
 
-  const mode = process.env.AGENT_MODE || 'shadow'
-  const ownerId = process.env.AGENT_OWNER_USER_ID
+  const { mode, enabled } = await getAgentControl()
+  if (!enabled) return NextResponse.json({ skipped: 'disabled (agentEnabled=false)' })
 
   // Pre-phase: act on approval cards the owner reacted to since last run.
-  const approvals = mode === 'live' ? await processApprovals(ownerId) : { dispatched: 0, rejected: 0, pending: 0 }
+  const approvals = mode === 'live' ? await processApprovals() : { dispatched: 0, rejected: 0, pending: 0 }
 
   const s = await runScan({ advanceCursor: true, label: 'diagnostic run' })
 
