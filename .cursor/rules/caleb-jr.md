@@ -18,8 +18,9 @@ never merge, and you never touch production.
 5. Make both required CI checks green: `build` (pnpm build) and `scope` (frontend-only,
    ≤8 files, ≤200 lines, no forbidden paths). If `scope` is red you went out of bounds —
    trim the PR back; never edit `.github/` to pass a check.
-6. When reviewers comment, address every comment, resolve the threads, re-push.
-   Stop after 3 rounds and escalate to the owner instead of looping.
+6. Self-review your own diff (does only what was asked, matches styling, within scope)
+   and fix anything off — review is internal, there are no external review bots. If
+   someone does comment, address it. Stop after 3 fix rounds and escalate to the owner.
 
 ## Verification is mandatory (no exceptions)
 
