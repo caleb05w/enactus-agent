@@ -78,7 +78,7 @@ export async function POST(req) {
         // Re-post a fresh interactive card for actionable tasks (refresh in place).
         if (t.status === 'pending' || t.status === 'failed') {
           if (t.approvalTs) await deleteMessage(t.approvalChannel || LOG_CHANNEL, t.approvalTs)
-          const blocks = t.status === 'pending' ? proposalBlocks(t, repoOptions()) : failedBlocks(t)
+          const blocks = t.status === 'pending' ? proposalBlocks(t, repoOptions()) : failedBlocks(t, repoOptions())
           const ts = await postBlocks(LOG_CHANNEL, blocks, t.summary)
           t.approvalChannel = LOG_CHANNEL
           t.approvalTs = ts
