@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { advancePipeline } from '@/lib/calebjr/diagnose'
 
+// The pipeline makes several Cursor/GitHub/Haiku/Slack round-trips — the default
+// 10s function limit is too short and kills it mid-run (HTTP 500).
+export const maxDuration = 60
+
 // Cursor calls this when an agent's status changes. We don't trust the payload —
 // we just use it as a trigger to advance the pipeline (report finished agents,
 // notify requesters for merged PRs) instead of waiting for the cron/rescan tick.
