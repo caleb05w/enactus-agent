@@ -2,10 +2,12 @@ import { NextResponse, after } from 'next/server'
 import crypto from 'crypto'
 import { connectDB } from '@/lib/mongodb'
 import AgentAction from '@/lib/models/AgentAction'
-import { getPermalink } from '@/lib/calebjr/slack'
+import { postBlocks, deleteMessage } from '@/lib/calebjr/slack'
+import { proposalBlocks, failedBlocks } from '@/lib/calebjr/cards'
+import { repoOptions } from '@/lib/calebjr/cursor'
 
 const OWNER_ID = 'U0B5CMFR6MA'
-const BOT = () => process.env.CALEB_JR_BOT_TOKEN
+const LOG_CHANNEL = 'C0B70PTF8PM'
 
 function verifySlack(rawBody, headers) {
   const secret = process.env.CALEB_JR_SIGNING_SECRET
@@ -67,21 +69,29 @@ export async function POST(req) {
         return
       }
 
+      let requeued = 0
       const lines = []
       for (const t of tasks) {
-        let link = t.messageLink || ''
-        if (t.status === 'completed' && t.prUrl) {
-          link = t.prUrl
-        } else if (t.approvalChannel && t.approvalTs) {
-          const p = await getPermalink(t.approvalChannel, t.approvalTs, BOT()).catch(() => '')
-          if (p) link = p
-        }
-        const label = STATE[t.status] || t.status
         const repo = t.repoName ? ` _→ ${t.repoName}_` : ''
-        lines.push(`• [${label}] ${t.summary}${repo}${link ? ` — <${link}|open>` : ''}`)
+        const label = STATE[t.status] || t.status
+
+        // Re-post a fresh interactive card for actionable tasks (refresh in place).
+        if (t.status === 'pending' || t.status === 'failed') {
+          if (t.approvalTs) await deleteMessage(t.approvalChannel || LOG_CHANNEL, t.approvalTs)
+          const blocks = t.status === 'pending' ? proposalBlocks(t, repoOptions()) : failedBlocks(t)
+          const ts = await postBlocks(LOG_CHANNEL, blocks, t.summary)
+          t.approvalChannel = LOG_CHANNEL
+          t.approvalTs = ts
+          await t.save()
+          requeued++
+          lines.push(`• [${label}] ${t.summary}${repo}`)
+        } else {
+          const link = t.status === 'completed' && t.prUrl ? ` — <${t.prUrl}|PR>` : ''
+          lines.push(`• [${label}] ${t.summary}${repo}${link}`)
+        }
       }
 
-      await reply(responseUrl, `:repeat: *Your last ${tasks.length} tasks*\n${lines.join('\n')}`)
+      await reply(responseUrl, `:repeat: *Open tasks* — ${requeued} re-queued as cards in <#${LOG_CHANNEL}>\n${lines.join('\n')}`)
     } catch (e) {
       await reply(responseUrl, `Couldn't fetch tasks: ${e.message}`)
     }
