@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import crypto from 'crypto'
-import { approveTask, skipTask } from '@/lib/calebjr/diagnose'
+import { approveTask, skipTask, retryTask } from '@/lib/calebjr/diagnose'
 
 const OWNER_ID = 'U0B5CMFR6MA'
 
@@ -52,6 +52,8 @@ export async function POST(req) {
     after(() => approveTask(action.value, selectedRepo(payload), payload.response_url))
   } else if (action?.action_id === 'skip') {
     after(() => skipTask(action.value, payload.response_url))
+  } else if (action?.action_id === 'retry') {
+    after(() => retryTask(action.value, payload.response_url))
   }
   // repo_select and anything else: just ack (selection is read at approve time).
   return NextResponse.json({})
