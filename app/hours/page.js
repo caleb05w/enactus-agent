@@ -76,9 +76,7 @@ export default function HoursPage() {
         </div>
 
         <p className="text-xs text-zinc-400">
-          Log meetings, project work, and prep time. If you&rsquo;re unsure
-          which tab or column to use, check the sheet instructions or ask in
-          Slack.
+          Log meetings, project work, and prep time. Ask in Slack if you need help.
         </p>
       </div>
     </main>

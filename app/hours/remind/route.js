@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { HOURS_REMINDER_CHANNEL_ID } from '../constants'
+
+// #marketing-execs only — never broadcast or DM.
+const HOURS_REMINDER_CHANNEL_ID = 'C0B5EM7H9MM'
 
 function authorized(req) {
   if (!process.env.CRON_SECRET) return true
@@ -91,9 +93,5 @@ async function handle(req) {
 }
 
 export async function GET(req) {
-  return handle(req)
-}
-
-export async function POST(req) {
   return handle(req)
 }
