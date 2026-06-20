@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { runScan, advancePipeline, getAgentControl } from '@/lib/calebjr/diagnose'
 
+// Scan + pipeline make many external round-trips; raise the function limit.
+export const maxDuration = 60
+
 // Cron entry point (Vercel runs this on the schedule in vercel.json).
 export async function GET(req) {
   // Cron auth: if CRON_SECRET is set, require it (Vercel Cron sends it).

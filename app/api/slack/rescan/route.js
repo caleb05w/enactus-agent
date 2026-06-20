@@ -2,6 +2,9 @@ import { NextResponse, after } from 'next/server'
 import crypto from 'crypto'
 import { runScan, advancePipeline, getAgentControl } from '@/lib/calebjr/diagnose'
 
+// Scan + pipeline make many external round-trips; raise the function limit.
+export const maxDuration = 60
+
 // Verify the request really came from Slack (HMAC over the raw body).
 function verifySlack(rawBody, headers) {
   const secret = process.env.CALEB_JR_SIGNING_SECRET

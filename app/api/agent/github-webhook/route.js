@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { checkMerges } from '@/lib/calebjr/diagnose'
 
+// checkMerges makes GitHub/Haiku/Slack round-trips; raise the function limit.
+export const maxDuration = 60
+
 // GitHub calls this when a PR event fires on a watched repo. When a PR is
 // merged, we advance the pipeline so the requester is notified within seconds —
 // no /rescan or cron wait. Verified via HMAC (X-Hub-Signature-256) using the
