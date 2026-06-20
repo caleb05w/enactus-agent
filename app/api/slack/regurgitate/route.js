@@ -34,8 +34,12 @@ async function reply(responseUrl, text) {
 const STATE = {
   pending: 'needs ✅ / ❌',
   dispatched: 'in progress',
+  failed: 'failed — needs a retry',
   completed: 'ready to merge',
 }
+
+// Open = not yet resolved by the agent (PR pushed) and not dismissed by you.
+const OPEN_STATUSES = ['pending', 'dispatched', 'failed', 'completed']
 
 // /regurgitate — show the owner their last 10 open tasks via their cards.
 export async function POST(req) {
@@ -54,7 +58,7 @@ export async function POST(req) {
   after(async () => {
     try {
       await connectDB()
-      const tasks = await AgentAction.find({ status: { $in: ['pending', 'dispatched', 'completed'] } })
+      const tasks = await AgentAction.find({ status: { $in: OPEN_STATUSES } })
         .sort({ createdAt: -1 })
         .limit(10)
 
