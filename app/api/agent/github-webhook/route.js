@@ -8,15 +8,19 @@ import { checkMerges } from '@/lib/calebjr/diagnose'
 // shared signing secret.
 export async function POST(req) {
   const raw = await req.text()
-  const secret = process.env.CALEB_JR_SIGNING_SECRET
   const sig = req.headers.get('x-hub-signature-256') || ''
-  if (secret) {
-    const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(raw).digest('hex')
+  // Accept any configured secret: a dedicated GitHub one (for repos owned by
+  // someone else, so they never see the Slack secret) or the shared signing
+  // secret (used on repos the owner controls directly, e.g. SKYES).
+  const secrets = [process.env.GITHUB_WEBHOOK_SECRET, process.env.CALEB_JR_SIGNING_SECRET].filter(Boolean)
+  if (secrets.length) {
     const a = Buffer.from(sig)
-    const b = Buffer.from(expected)
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      return NextResponse.json({ error: 'bad signature' }, { status: 401 })
-    }
+    const matches = secrets.some((s) => {
+      const expected = 'sha256=' + crypto.createHmac('sha256', s).update(raw).digest('hex')
+      const b = Buffer.from(expected)
+      return a.length === b.length && crypto.timingSafeEqual(a, b)
+    })
+    if (!matches) return NextResponse.json({ error: 'bad signature' }, { status: 401 })
   }
 
   const event = req.headers.get('x-github-event')
