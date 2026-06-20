@@ -5,6 +5,8 @@ import { runScan, advancePipeline, getAgentControl } from '@/lib/calebjr/diagnos
 // Scan + pipeline make many external round-trips; raise the function limit.
 export const maxDuration = 60
 
+const OWNER_ID = 'U0B5CMFR6MA' // only the owner may trigger scans
+
 // Verify the request really came from Slack (HMAC over the raw body).
 function verifySlack(rawBody, headers) {
   const secret = process.env.CALEB_JR_SIGNING_SECRET
@@ -39,6 +41,11 @@ export async function POST(req) {
 
   const params = new URLSearchParams(raw)
   const responseUrl = params.get('response_url')
+
+  if (params.get('user_id') !== OWNER_ID) {
+    return NextResponse.json({ response_type: 'ephemeral', text: 'Only the owner can run this.' })
+  }
+
   const days = parseInt((params.get('text') || '').trim(), 10)
 
   if (!days || days < 1 || days > 90) {
