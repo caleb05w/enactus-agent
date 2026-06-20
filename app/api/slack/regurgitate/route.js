@@ -2,7 +2,7 @@ import { NextResponse, after } from 'next/server'
 import crypto from 'crypto'
 import { connectDB } from '@/lib/mongodb'
 import AgentAction from '@/lib/models/AgentAction'
-import { postBlocks, deleteMessage } from '@/lib/calebjr/slack'
+import { postBlocks, deleteMessage, ownerDMChannel } from '@/lib/calebjr/slack'
 import { proposalBlocks, failedBlocks } from '@/lib/calebjr/cards'
 import { repoOptions } from '@/lib/calebjr/cursor'
 
@@ -54,6 +54,7 @@ export async function POST(req) {
 
   const params = new URLSearchParams(raw)
   const responseUrl = params.get('response_url')
+  const invokedIn = params.get('channel_id') // post cards back where it was run
 
   if (params.get('user_id') !== OWNER_ID) {
     return NextResponse.json({ response_type: 'ephemeral', text: 'These are the owner’s tasks — not available to you.' })
@@ -77,12 +78,21 @@ export async function POST(req) {
         const repo = t.repoName ? ` _→ ${t.repoName}_` : ''
         const label = STATE[t.status] || t.status
 
-        // Re-post a fresh interactive card for actionable tasks (refresh in place).
+        // Re-post a fresh interactive card for actionable tasks, in the channel
+        // where /regurgitate was run (falls back to the owner DM if the bot
+        // can't post there).
         if (t.status === 'pending' || t.status === 'failed') {
           if (t.approvalTs) await deleteMessage(t.approvalChannel || LOG_CHANNEL, t.approvalTs)
           const blocks = t.status === 'pending' ? proposalBlocks(t, repoOptions()) : failedBlocks(t, repoOptions())
-          const ts = await postBlocks(LOG_CHANNEL, blocks, t.summary)
-          t.approvalChannel = LOG_CHANNEL
+          let dest = invokedIn || LOG_CHANNEL
+          let ts
+          try {
+            ts = await postBlocks(dest, blocks, t.summary)
+          } catch {
+            dest = (await ownerDMChannel(OWNER_ID)) || LOG_CHANNEL
+            ts = await postBlocks(dest, blocks, t.summary)
+          }
+          t.approvalChannel = dest
           t.approvalTs = ts
           await t.save()
           requeued++
@@ -93,7 +103,7 @@ export async function POST(req) {
         }
       }
 
-      await reply(responseUrl, `:repeat: *Open tasks* — ${requeued} re-queued as cards in <#${LOG_CHANNEL}>\n${lines.join('\n')}`)
+      await reply(responseUrl, `:repeat: *Open tasks* — ${requeued} re-queued as cards here\n${lines.join('\n')}`)
     } catch (e) {
       await reply(responseUrl, `Couldn't fetch tasks: ${e.message}`)
     }
