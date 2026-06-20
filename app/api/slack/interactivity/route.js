@@ -40,7 +40,7 @@ export async function POST(req) {
   try {
     payload = JSON.parse(new URLSearchParams(raw).get('payload'))
   } catch {
-    return NextResponse.json({})
+    return new Response(null, { status: 200 })
   }
 
   if (payload.user?.id !== OWNER_ID) {
@@ -56,5 +56,5 @@ export async function POST(req) {
     after(() => retryTask(action.value, payload.response_url))
   }
   // repo_select and anything else: just ack (selection is read at approve time).
-  return NextResponse.json({})
+  return new Response(null, { status: 200 })
 }
