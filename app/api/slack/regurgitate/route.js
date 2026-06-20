@@ -77,7 +77,8 @@ export async function POST(req) {
           if (p) link = p
         }
         const label = STATE[t.status] || t.status
-        lines.push(`• [${label}] ${t.summary}${link ? ` — <${link}|open>` : ''}`)
+        const repo = t.repoName ? ` _→ ${t.repoName}_` : ''
+        lines.push(`• [${label}] ${t.summary}${repo}${link ? ` — <${link}|open>` : ''}`)
       }
 
       await reply(responseUrl, `:repeat: *Your last ${tasks.length} tasks*\n${lines.join('\n')}`)
