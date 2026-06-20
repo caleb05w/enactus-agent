@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/agent/diagnose",
-      "schedule": "0 15 * * *"
-    }
-  ]
-}
