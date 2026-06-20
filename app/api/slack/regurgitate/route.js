@@ -83,7 +83,8 @@ export async function POST(req) {
         // can't post there).
         if (t.status === 'pending' || t.status === 'failed') {
           if (t.approvalTs) await deleteMessage(t.approvalChannel || LOG_CHANNEL, t.approvalTs)
-          const blocks = t.status === 'pending' ? proposalBlocks(t, repoOptions()) : failedBlocks(t, repoOptions())
+          const repos = await repoOptions()
+          const blocks = t.status === 'pending' ? proposalBlocks(t, repos) : failedBlocks(t, repos)
           let dest = invokedIn || LOG_CHANNEL
           let ts
           try {
