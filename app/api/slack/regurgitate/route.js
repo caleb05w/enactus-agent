@@ -37,11 +37,13 @@ const STATE = {
   pending: 'needs ✅ / ❌',
   dispatched: 'in progress',
   failed: 'failed — needs a retry',
-  completed: 'ready to merge',
+  pr_ready: 'ready for you to merge',
+  completed: 'ready for you to merge',
 }
 
-// Open = not yet resolved by the agent (PR pushed) and not dismissed by you.
-const OPEN_STATUSES = ['pending', 'dispatched', 'failed', 'completed']
+// Open = not yet resolved (still needs you to approve, retry, or merge). Once
+// you merge — status 'merged' — the requester is notified and it drops off.
+const OPEN_STATUSES = ['pending', 'dispatched', 'failed', 'pr_ready', 'completed']
 
 // /regurgitate — show the owner their last 10 open tasks via their cards.
 export async function POST(req) {
@@ -86,7 +88,7 @@ export async function POST(req) {
           requeued++
           lines.push(`• [${label}] ${t.summary}${repo}`)
         } else {
-          const link = t.status === 'completed' && t.prUrl ? ` — <${t.prUrl}|PR>` : ''
+          const link = (t.status === 'pr_ready' || t.status === 'completed') && t.prUrl ? ` — <${t.prUrl}|PR>` : ''
           lines.push(`• [${label}] ${t.summary}${repo}${link}`)
         }
       }
