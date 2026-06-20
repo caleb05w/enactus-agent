@@ -18,5 +18,6 @@ export async function POST(req) {
   const body = await req.json().catch(() => ({}))
   if (body.mode === 'live' || body.mode === 'shadow') await setSetting('agentMode', body.mode)
   if (typeof body.enabled === 'boolean') await setSetting('agentEnabled', body.enabled)
+  if (typeof body.scanOwner === 'boolean') await setSetting('agentScanOwner', body.scanOwner)
   return NextResponse.json(await getAgentControl())
 }
