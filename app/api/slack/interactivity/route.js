@@ -53,7 +53,7 @@ export async function POST(req) {
   } else if (action?.action_id === 'skip') {
     after(() => skipTask(action.value, payload.response_url))
   } else if (action?.action_id === 'retry') {
-    after(() => retryTask(action.value, payload.response_url))
+    after(() => retryTask(action.value, selectedRepo(payload), payload.response_url))
   }
   // repo_select and anything else: just ack (selection is read at approve time).
   return new Response(null, { status: 200 })
