@@ -48,12 +48,13 @@ export async function POST(req) {
   }
 
   const action = payload.actions?.[0]
+  const actor = payload.user?.id
   if (action?.action_id === 'approve') {
-    after(() => approveTask(action.value, selectedRepo(payload), payload.response_url))
+    after(() => approveTask(action.value, selectedRepo(payload), payload.response_url, actor))
   } else if (action?.action_id === 'skip') {
-    after(() => skipTask(action.value, payload.response_url))
+    after(() => skipTask(action.value, payload.response_url, actor))
   } else if (action?.action_id === 'retry') {
-    after(() => retryTask(action.value, selectedRepo(payload), payload.response_url))
+    after(() => retryTask(action.value, selectedRepo(payload), payload.response_url, actor))
   }
   // repo_select and anything else: just ack (selection is read at approve time).
   return new Response(null, { status: 200 })
