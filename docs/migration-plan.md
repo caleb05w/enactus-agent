@@ -1,41 +1,46 @@
-# Migration plan — split Caleb Jr from the Enactus portal
+# Migration plan — extract Caleb Jr into its own repo
 
 **Goal:** put the automation orchestrator (Caleb Jr) and the auto-editable
-product (the Enactus portal / "enactus-bot") in **separate repos + deployments**,
-so a Cursor-built change to the portal can never break Caleb Jr — and so the
-portal's repo never sits next to Caleb Jr's powerful secrets.
+product (the Enactus portal) in **separate repos + deployments**, so a
+Cursor-built change to the portal can never break Caleb Jr — and so the portal's
+repo never sits next to Caleb Jr's powerful secrets.
 
 **Principle:** the thing that performs automated changes must live *outside* the
 blast radius of what it changes.
+
+**Chosen direction:** the **portal stays** in `enactus-agent` (keeps its URL and
+becomes the auto-edit target); **Caleb Jr extracts** to a new `caleb-jr` repo +
+deploy.
 
 ---
 
 ## Target architecture
 
-| | `enactus-agent` (Caleb Jr) — **stays put** | `enactus-bot` (new repo) |
+| | `enactus-agent` (Portal) — **stays put** | `caleb-jr` (new repo) |
 |---|---|---|
-| Role | Headless automation agent (API routes only) | Public portal + the other Slack bot |
-| Deploy | keeps `enactus-agent.vercel.app` | new `enactus-bot.vercel.app` |
-| Cursor registry | **excluded + denylisted** (never self-edits) | **listed** (the auto-update target) |
-| Powerful secrets | yes (Cursor key, user token, signing secrets) | no |
-| Cron | `/api/agent/diagnose` (daily) | `/...hours/remind` (daily, self-gated to Fri) |
+| Role | public portal + the `SLACK_BOT_TOKEN` bot | headless automation agent (API only) |
+| Deploy | keeps `enactus-agent.vercel.app` | new `caleb-jr.vercel.app` |
+| Cursor registry | **listed** (the auto-update target) | **excluded** (Cursor has no access; never self-edits) |
+| Powerful secrets | none | yes (Cursor key, user token, signing secrets) |
+| Cron | `…/hours/remind` (daily, self-gated to Fri) | `/api/agent/diagnose` (daily) |
 
-**Why Caleb Jr keeps the existing repo/URL:** its external wiring is the most
-fragile — Slack interactivity URL (app `A0BBT99TL2Z`), `/rescan` + `/regurgitate`
-slash commands, the Cursor webhook, and the GitHub merge webhooks all point at
-`enactus-agent.vercel.app`. Keeping it stable means **zero reconfiguration** of
-that wiring. The portal's URL is internal-tool links (re-shareable), so moving it
-is the cheaper side to move.
+**Bonuses of this direction:** Cursor already has GitHub access to `enactus-agent`
+(no new grant needed); the public portal URL is **unchanged**; and PR #4's
+hours/reminders feature is *already* in this repo — it just needs its fixes, no move.
+
+**Cost of this direction:** Caleb Jr's external wiring repoints to the new URL —
+Slack interactivity, `/rescan`, `/regurgitate`, and the GitHub merge webhook(s).
+The Cursor webhook is built from `NEXT_PUBLIC_APP_URL`, so it auto-updates.
 
 ---
 
 ## File inventory
 
-### Stays in `enactus-agent` (Caleb Jr)
+### Moves to `caleb-jr` (the orchestrator)
 ```
 app/api/agent/control/route.js
 app/api/agent/cursor-webhook/route.js
-app/api/agent/diagnose/route.js          (cron)
+app/api/agent/diagnose/route.js          (cron → moves with it)
 app/api/agent/github-webhook/route.js
 app/api/slack/interactivity/route.js
 app/api/slack/regurgitate/route.js
@@ -45,18 +50,18 @@ lib/models/{AgentAction,AgentCursor,AgentLog}.js
 Settings keys: agentMode, agentEnabled, agentScanOwner
 ```
 
-### Moves to `enactus-bot`
+### Stays in `enactus-agent` (the portal — already here)
 ```
 app/page.js  app/layout.js  app/globals.css  app/favicon.ico
 app/finance/page.js          app/api/finance/{events,submit}/route.js
 app/profiles/page.js         app/api/profiles/{ingest,route,upload,url}/route.js
 app/submit/page.js           app/api/submit/route.js
 app/settings/page.js         app/api/settings/route.js
+app/hours/* + …/hours/remind (PR #4 — fix token+cron, then merge HERE)
                              app/api/slack/{channels,members,ping,help,glaze}/route.js
 lib/{sheets,calendar,drive,destinations,parseLinkedIn,similarity,upload,slack}.js
 lib/models/{Finance,Profile,Submission}.js
 Settings key: financeChannel
-PLUS: the hours/reminders feature from PR #4 (with token + cron fixes) lands HERE
 ```
 
 ### Duplicated in both (shared infra, copy verbatim)
@@ -72,39 +77,38 @@ the shared `settings` collection uses disjoint keys. **No data migration.**
 
 ## Dependency split (`package.json`)
 
-| Package | enactus-agent | enactus-bot |
+| Package | caleb-jr | enactus-agent (portal) |
 |---|:--:|:--:|
 | next, react, react-dom, mongoose | ✅ | ✅ |
 | @anthropic-ai/sdk | ✅ (triage) | ✅ (glaze) |
-| googleapis | ❌ | ✅ (sheets/calendar/drive) |
-| @vercel/blob, jszip, papaparse | ❌ | ✅ (uploads/CSV) |
+| googleapis | ❌ | ✅ |
+| @vercel/blob, jszip, papaparse | ❌ | ✅ |
 | @vercel/analytics | optional | ✅ |
 | tailwindcss, eslint* (dev) | ✅ | ✅ |
 
-Caleb Jr sheds googleapis, blob, jszip, papaparse — meaningfully smaller.
+`caleb-jr` sheds googleapis, blob, jszip, papaparse — much smaller.
 
 ---
 
 ## Environment variables
 
-### `enactus-agent` keeps (and we **remove** the portal ones)
+### `caleb-jr` (new project) gets
 ```
-KEEP:   ANTHROPIC_API_KEY, MONGODB_URI, NEXT_PUBLIC_APP_URL, CRON_SECRET,
-        CALEB_JR_BOT_TOKEN, CALEB_JR_USER_TOKEN, CALEB_JR_SIGNING_SECRET,
-        CURSOR_API_KEY, CURSOR_MODEL, GITHUB_WEBHOOK_SECRET
-REMOVE: SLACK_BOT_TOKEN, GOOGLE_* (all), CURSOR_REPO, CURSOR_BASE_REF (legacy)
+ANTHROPIC_API_KEY
+CALEB_JR_BOT_TOKEN, CALEB_JR_USER_TOKEN, CALEB_JR_SIGNING_SECRET
+CURSOR_API_KEY, CURSOR_MODEL
+GITHUB_WEBHOOK_SECRET
+MONGODB_URI            (same value — shared cluster)
+NEXT_PUBLIC_APP_URL    (new — the caleb-jr.vercel.app URL; also drives the Cursor webhook)
+CRON_SECRET            (its own)
 ```
 
-### `enactus-bot` (new project) gets
+### `enactus-agent` (portal) keeps; we **remove** the agent ones
 ```
-SLACK_BOT_TOKEN
-GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_SPREADSHEET_ID,
-GOOGLE_CALENDAR_ID, GOOGLE_DRIVE_FOLDER_ID
-GOOGLE_HOURS_SPREADSHEET_ID   (new — for the reminders feature)
-ANTHROPIC_API_KEY
-MONGODB_URI                   (same value — shared cluster)
-NEXT_PUBLIC_APP_URL           (new — the enactus-bot.vercel.app URL)
-CRON_SECRET                   (its own)
+KEEP:   SLACK_BOT_TOKEN, GOOGLE_* (all), GOOGLE_HOURS_SPREADSHEET_ID (new, for reminders),
+        ANTHROPIC_API_KEY, MONGODB_URI, NEXT_PUBLIC_APP_URL (unchanged), CRON_SECRET
+REMOVE: CALEB_JR_BOT_TOKEN, CALEB_JR_USER_TOKEN, CALEB_JR_SIGNING_SECRET,
+        CURSOR_API_KEY, CURSOR_MODEL, CURSOR_REPO, CURSOR_BASE_REF, GITHUB_WEBHOOK_SECRET
 ```
 
 ---
@@ -113,38 +117,36 @@ CRON_SECRET                   (its own)
 
 | What | Where | Who |
 |---|---|---|
-| Create `caleb05w/enactus-bot` repo | GitHub | **me** (`gh repo create`) |
-| New Vercel project + env vars | Vercel | **me** if `vercel` CLI is authed, else exact list for you to paste |
-| Grant Cursor GitHub access to `enactus-bot` | Cursor app install | **you** (one click) |
-| Add `enactus-bot` to Cursor registry; denylist `enactus-agent` | code | **me** |
-| Portal bot slash-command URLs (`/help`, `/ping`, finance submit) → new URL | Slack app (the SLACK_BOT_TOKEN app) | **you** (or me if Slack config token available) |
-| Caleb Jr wiring (interactivity, `/rescan`, `/regurgitate`, webhooks) | — | **unchanged** ✅ |
+| Create `caleb05w/caleb-jr` repo | GitHub | **me** (`gh repo create`) |
+| New Vercel project + env vars | Vercel | **me** if `vercel` CLI is authed, else exact list for you |
+| Caleb Jr Slack app (`A0BBT99TL2Z`): interactivity URL + `/rescan` + `/regurgitate` → new URL | Slack | **you** (or me w/ a config token) |
+| GitHub merge webhook(s) (SKYES, + marketing later) → new URL | GitHub | **me** for SKYES (`gh`) |
+| Cursor webhook | from `NEXT_PUBLIC_APP_URL` | **auto** ✅ |
+| Portal bot slash commands, public URL, Cursor GitHub access | — | **unchanged** ✅ |
 
 ---
 
 ## Execution order (zero-downtime)
 
-1. **Stand up `enactus-bot`** — create repo, copy the portal files + shared infra, prune `package.json`, add the PR #4 hours feature (token fix → `SLACK_BOT_TOKEN`; cron wired in `vercel.json`).
-2. **New Vercel project** — set env vars, deploy, get the URL, set `NEXT_PUBLIC_APP_URL` to it.
-3. **Verify the portal on the new URL** — finance form submits, events load, profiles, submission form, `/help` links resolve.
-4. **Repoint the portal bot** — update its Slack slash-command request URLs to the new deploy.
-5. **Cursor** — you grant access to `enactus-bot`; I add it to the registry and denylist `enactus-agent`.
-6. **Gut `enactus-agent`** — delete the portal files, prune its deps, remove the portal env vars, keep only the agent cron in `vercel.json`.
-7. **Verify Caleb Jr** — a request → 👀 → card in your DM → approve → Cursor PR (now targeting `enactus-bot`) → merge → requester notified. Webhooks unchanged, so this should "just work."
-8. **Land the reminders** — the PR #4 feature now lives/merges in `enactus-bot`, not here. Close PR #4 on `enactus-agent`.
+1. **Stand up `caleb-jr`** — create repo; copy the agent files + shared infra; prune `package.json`; carry over the agent cron in its own `vercel.json`.
+2. **New Vercel project** — set env vars, deploy, capture the URL, set `NEXT_PUBLIC_APP_URL` to it.
+3. **Repoint Caleb Jr wiring** — Slack interactivity + `/rescan` + `/regurgitate` URLs; GitHub SKYES webhook URL. (Cursor webhook auto-updates.)
+4. **Verify Caleb Jr** on the new deploy — request → 👀 → card in your DM → approve → Cursor PR → merge → requester notified.
+5. **Un-block the portal** — remove the temporary `enactus-agent` denylist so the portal becomes the live edit target again (Cursor access already exists).
+6. **Gut `enactus-agent`** — delete `lib/calebjr/*`, the agent routes, the agent models; remove the `CALEB_JR_*` / `CURSOR_*` / `GITHUB_WEBHOOK_SECRET` env; swap `vercel.json`'s agent cron for the `hours/remind` cron.
+7. **Land reminders** — fix PR #4 here (token → `SLACK_BOT_TOKEN`, wire the cron) and merge.
 
 ---
 
 ## Verification checklist
-- [ ] Portal: every page + API route works on the new URL
-- [ ] Reminders fire to **#marketing-execs only**, using `SLACK_BOT_TOKEN`, on Fridays
-- [ ] Caleb Jr full loop works against the slimmed repo
-- [ ] Cursor routes "enactus-web bot" requests to **enactus-bot**, never `enactus-agent`
-- [ ] `enactus-agent` deploy no longer references any `GOOGLE_*` / `SLACK_BOT_TOKEN`
-- [ ] No secret leakage: `enactus-bot` env has no Cursor key / user token / signing secrets
+- [ ] Caleb Jr full loop works on `caleb-jr.vercel.app` (cards → approve → PR → merge-notify)
+- [ ] Slack interactivity + both slash commands hit the new URL; merge webhook fires
+- [ ] Cursor routes "enactus-web bot" requests to **enactus-agent** (portal), never `caleb-jr`
+- [ ] Portal: every page + API route still works (URL unchanged)
+- [ ] Reminders fire to **#marketing-execs only**, via `SLACK_BOT_TOKEN`, on Fridays
+- [ ] `enactus-agent` env no longer holds any `CALEB_JR_*` / `CURSOR_*` / signing secrets
+- [ ] `caleb-jr` env has no `GOOGLE_*` / `SLACK_BOT_TOKEN`
 
 ## Rollback
-Both deploys are independent; if the portal misbehaves on the new project, the old
-combined deploy stays live until step 6. Don't delete portal code from
-`enactus-agent` until the new project is verified (step 3).
-```
+Both deploys are independent. Keep the agent code live in `enactus-agent` until
+`caleb-jr` is verified (step 4); don't gut `enactus-agent` (step 6) before then.
