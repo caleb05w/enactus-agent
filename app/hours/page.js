@@ -34,7 +34,8 @@ export default function HoursPage() {
           <h1 className="pt-2">Log your hours</h1>
           <p>
             Update the team hour tracker every week with the time you spent on
-            Enactus projects and meetings. Weekly reminders link here from Slack.
+            Enactus projects and meetings. Weekly reminders are posted to
+            #marketing-execs and link here.
           </p>
         </div>
 
