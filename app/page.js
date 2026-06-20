@@ -21,27 +21,17 @@ export default function Home() {
           </h1>
           <p className="text-base">
             Submit a reimbursement or money request — it&rsquo;s logged to the team
-            spreadsheet and posted to Slack for review. You can also share a project
-            idea or update.
+            spreadsheet and posted to Slack for review.
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <Link
             href="/finance"
-            className="inline-flex items-center justify-center rounded-md bg-zinc-950 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
+            className="font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900"
           >
             New finance request
           </Link>
-          <Link
-            href="/submit"
-            className="inline-flex items-center justify-center rounded-md border border-zinc-200 px-6 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-          >
-            Make a submission
-          </Link>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-2 text-sm">
           {trackerUrl && (
             <a
               href={trackerUrl}
@@ -52,12 +42,6 @@ export default function Home() {
               View the finance tracker
             </a>
           )}
-          <Link
-            href="/settings"
-            className="font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900"
-          >
-            Settings
-          </Link>
         </div>
       </div>
     </main>
