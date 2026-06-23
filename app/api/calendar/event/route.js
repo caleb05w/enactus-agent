@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createCalendarEvent } from '@/lib/calendar'
+import { alertBotLog } from '@/lib/botlog'
 
 // Create a calendar event. Write endpoint — token-guarded and fail-closed: if no
 // token is configured it refuses, so it's never an open calendar-write hole.
@@ -26,6 +27,7 @@ export async function POST(req) {
     const event = await createCalendarEvent(body)
     return NextResponse.json({ ok: true, event })
   } catch (e) {
+    await alertBotLog(`calendar event failed: ${e.message}`)
     return NextResponse.json({ error: e.message }, { status: 400 })
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
+import { alertBotLog } from '@/lib/botlog'
 
 const CHANNEL_ID = 'C0B5EM7H9MM'
 const CALEB = /caleb\s*wu/i
@@ -101,6 +102,7 @@ export async function GET(req) {
     return NextResponse.json({ ok: true, channel: CHANNEL_ID, ts: slack.ts, calebHours })
   } catch (err) {
     console.error('[hours/remind]', err)
+    await alertBotLog(`hours reminder failed: ${err.message}`)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
