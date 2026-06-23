@@ -86,11 +86,12 @@ async function postReminder(token) {
 
 export async function GET(req) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  // Day-gated only — the weekly cron controls the time. (A fixed-UTC Vercel cron
-  // can't reliably hit an exact local hour across DST, so we gate on the day.)
+  // Day-gated only — the weekly cron sets the time (Tue 16:35 UTC ≈ 9:35am PT).
+  // A fixed-UTC Vercel cron can't track an exact local hour across DST, so we
+  // gate on the day and let the cron schedule decide the time.
   const now = vancouverNow()
-  if (now.day !== 'Mon') {
-    return NextResponse.json({ skipped: `not Monday (${TZ}); now ${now.day} ${now.hour}:00` })
+  if (now.day !== 'Tue') {
+    return NextResponse.json({ skipped: `not Tuesday (${TZ}); now ${now.day} ${now.hour}:00` })
   }
   const token = process.env.SLACK_BOT_TOKEN
   if (!token) return NextResponse.json({ error: 'SLACK_BOT_TOKEN is not defined' }, { status: 500 })
