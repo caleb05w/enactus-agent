@@ -86,7 +86,7 @@ async function postReminder(token) {
 
 export async function GET(req) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  // Day-gated only — the weekly cron sets the time (Tue 16:35 UTC ≈ 9:35am PT).
+  // Day-gated only — the weekly cron sets the time (Tue 16:41 UTC ≈ 9:41am PT).
   // A fixed-UTC Vercel cron can't track an exact local hour across DST, so we
   // gate on the day and let the cron schedule decide the time.
   const now = vancouverNow()
