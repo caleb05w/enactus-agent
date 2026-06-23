@@ -3,8 +3,9 @@ import { google } from 'googleapis'
 import { alertBotLog } from '@/lib/botlog'
 
 const CHANNEL_ID = 'C0B5EM7H9MM'
-const CALEB = /caleb\s*wu/i
+const CALEB = /caleb/i // the name row cell reads "Caleb"
 const TZ = 'America/Vancouver'
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 // The hours spreadsheet's specific tab (the gid in its URL). Override via env.
 const HOURS_GID = Number(process.env.GOOGLE_HOURS_SHEET_GID || 1919073716)
 
@@ -19,6 +20,26 @@ function vancouverNow() {
       .formatToParts(new Date()).map((x) => [x.type, x.value]),
   )
   return { day: p.weekday, hour: Number(p.hour) }
+}
+
+// 0-based column index → A1 letter (Q=16, AA=26, …).
+function colLetter(i) {
+  let s = ''
+  for (i += 1; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + ((i - 1) % 26)) + s
+  return s
+}
+
+// This week's Monday, formatted to match column A (e.g. "Jun 22"). Column A
+// lists weekly Mondays; the reminder runs Tuesday, so we target the current week.
+function currentWeekMondayLabel() {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })
+      .formatToParts(new Date()).map((x) => [x.type, x.value]),
+  )
+  const d = new Date(`${p.year}-${p.month}-${p.day}T12:00:00Z`)
+  const daysSinceMon = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }[p.weekday] ?? 0
+  d.setUTCDate(d.getUTCDate() - daysSinceMon)
+  return `${MON[d.getUTCMonth()]} ${d.getUTCDate()}` // no leading zero, matches "Jun 22"
 }
 
 function hoursUrl() {
@@ -43,24 +64,28 @@ async function updateCalebHours() {
   // Target the specific tab (gid) of the hours sheet, not just the first tab.
   const sheet = meta.data.sheets?.find((s) => s.properties?.sheetId === HOURS_GID) || meta.data.sheets?.[0]
   const tab = sheet?.properties?.title ?? 'Sheet1'
-  const { data } = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${tab}!A:Z` })
-  const rows = data.values || []
-  const header = rows[0] || []
-  const hoursCol = header.findIndex((h) => /hours/i.test(String(h)))
-  const nameCol = header.findIndex((h) => /name/i.test(String(h)))
-  const rowIdx = rows.findIndex((row, i) =>
-    i > 0 && (nameCol >= 0 ? [row[nameCol]] : row).some((c) => CALEB.test(String(c || ''))),
-  )
-  if (rowIdx < 0) throw new Error('Caleb Wu row not found')
-  const col = hoursCol >= 0 ? hoursCol : 1
+
+  // Layout: people are COLUMNS (names in row 5), weeks are ROWS (column A holds
+  // weekly Mondays like "Jun 22", with "Total" subtotal rows between months).
+  // Caleb's column × the current week's row = the one cell we write.
+  const nameRow = (await sheets.spreadsheets.values.get({ spreadsheetId, range: `${tab}!A5:AZ5` })).data.values?.[0] || []
+  const colIdx = nameRow.findIndex((n) => CALEB.test(String(n || '')))
+  if (colIdx < 0) throw new Error('Caleb column not found in the name row (row 5)')
+
+  const colA = (await sheets.spreadsheets.values.get({ spreadsheetId, range: `${tab}!A1:A300` })).data.values || []
+  const week = currentWeekMondayLabel()
+  const rowIdx = colA.findIndex((r) => String((r || [])[0] || '').trim().toLowerCase() === week.toLowerCase())
+  if (rowIdx < 0) throw new Error(`Week row "${week}" not found in column A`)
+
   const hours = Math.floor(Math.random() * 6) + 5
+  const cell = `${tab}!${colLetter(colIdx)}${rowIdx + 1}`
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${tab}!${String.fromCharCode(65 + col)}${rowIdx + 1}`,
+    range: cell,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[hours]] },
   })
-  return hours
+  return { hours, cell, week }
 }
 
 async function postReminder(token) {
