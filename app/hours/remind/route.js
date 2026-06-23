@@ -5,6 +5,8 @@ import { alertBotLog } from '@/lib/botlog'
 const CHANNEL_ID = 'C0B5EM7H9MM'
 const CALEB = /caleb\s*wu/i
 const TZ = 'America/Vancouver'
+// The hours spreadsheet's specific tab (the gid in its URL). Override via env.
+const HOURS_GID = Number(process.env.GOOGLE_HOURS_SHEET_GID || 1919073716)
 
 function authorized(req) {
   if (!process.env.CRON_SECRET) return true
@@ -25,7 +27,7 @@ function hoursUrl() {
 
 function sheetUrl() {
   const id = process.env.GOOGLE_HOURS_SPREADSHEET_ID || process.env.GOOGLE_SPREADSHEET_ID
-  return id ? `https://docs.google.com/spreadsheets/d/${id}/edit` : null
+  return id ? `https://docs.google.com/spreadsheets/d/${id}/edit#gid=${HOURS_GID}` : null
 }
 
 async function updateCalebHours() {
@@ -38,7 +40,9 @@ async function updateCalebHours() {
   })
   const sheets = google.sheets({ version: 'v4', auth })
   const meta = await sheets.spreadsheets.get({ spreadsheetId })
-  const tab = meta.data.sheets?.[0]?.properties?.title ?? 'Sheet1'
+  // Target the specific tab (gid) of the hours sheet, not just the first tab.
+  const sheet = meta.data.sheets?.find((s) => s.properties?.sheetId === HOURS_GID) || meta.data.sheets?.[0]
+  const tab = sheet?.properties?.title ?? 'Sheet1'
   const { data } = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${tab}!A:Z` })
   const rows = data.values || []
   const header = rows[0] || []
