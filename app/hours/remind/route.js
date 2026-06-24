@@ -2,12 +2,17 @@ import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { alertBotLog } from '@/lib/botlog'
 
-const CHANNEL_ID = 'C0B5EM7H9MM'
+const CHANNEL_ID = 'C0B1D5R8GRY'
 const CALEB = /caleb/i // the name row cell reads "Caleb"
 const TZ = 'America/Vancouver'
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const DEFAULT_HOURS_SPREADSHEET_ID = '1rMW2qPCCDzT-UsHZzmr2teF1ZcHWz5l3fKkK7QzqMUg'
 // The hours spreadsheet's specific tab (the gid in its URL). Override via env.
 const HOURS_GID = Number(process.env.GOOGLE_HOURS_SHEET_GID || 1919073716)
+
+function hoursSpreadsheetId() {
+  return process.env.GOOGLE_HOURS_SPREADSHEET_ID || process.env.GOOGLE_SPREADSHEET_ID || DEFAULT_HOURS_SPREADSHEET_ID
+}
 
 function authorized(req) {
   if (!process.env.CRON_SECRET) return true
@@ -30,7 +35,7 @@ function colLetter(i) {
 }
 
 // This week's Monday, formatted to match column A (e.g. "Jun 22"). Column A
-// lists weekly Mondays; the reminder runs Tuesday, so we target the current week.
+// lists weekly Mondays; the reminder runs Monday at 5pm PT, so we target the current week.
 function currentWeekMondayLabel() {
   const p = Object.fromEntries(
     new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })
@@ -47,13 +52,12 @@ function hoursUrl() {
 }
 
 function sheetUrl() {
-  const id = process.env.GOOGLE_HOURS_SPREADSHEET_ID || process.env.GOOGLE_SPREADSHEET_ID
-  return id ? `https://docs.google.com/spreadsheets/d/${id}/edit#gid=${HOURS_GID}` : null
+  const id = hoursSpreadsheetId()
+  return `https://docs.google.com/spreadsheets/d/${id}/edit?gid=${HOURS_GID}#gid=${HOURS_GID}`
 }
 
 async function updateCalebHours() {
-  const spreadsheetId = process.env.GOOGLE_HOURS_SPREADSHEET_ID || process.env.GOOGLE_SPREADSHEET_ID
-  if (!spreadsheetId) throw new Error('No hours spreadsheet configured')
+  const spreadsheetId = hoursSpreadsheetId()
   const auth = new google.auth.JWT({
     email: process.env.GOOGLE_CLIENT_EMAIL,
     key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
@@ -94,9 +98,7 @@ async function postReminder(token) {
   }).then((r) => r.json())
   if (!auth.ok) throw new Error(`Slack auth error: ${auth.error}`)
   const mention = `<@${auth.user_id}>`
-  const link = sheetUrl()
-    ? `<${hoursUrl()}|Log hours via Enactus Agent> · <${sheetUrl()}|Open spreadsheet>`
-    : `<${hoursUrl()}|Log hours via Enactus Agent>`
+  const link = `<${hoursUrl()}|Log hours via Enactus Agent> · <${sheetUrl()}|Open spreadsheet>`
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -116,12 +118,10 @@ async function postReminder(token) {
 
 export async function GET(req) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  // Day-gated only — the weekly cron sets the time (Tue 16:41 UTC ≈ 9:41am PT).
-  // A fixed-UTC Vercel cron can't track an exact local hour across DST, so we
-  // gate on the day and let the cron schedule decide the time.
+  // Cron fires Tue 00:00 + 01:00 UTC (Mon 5pm PT across DST). Gate on local day/hour.
   const now = vancouverNow()
-  if (now.day !== 'Tue') {
-    return NextResponse.json({ skipped: `not Tuesday (${TZ}); now ${now.day} ${now.hour}:00` })
+  if (now.day !== 'Mon' || now.hour !== 17) {
+    return NextResponse.json({ skipped: `not Monday 5pm (${TZ}); now ${now.day} ${now.hour}:00` })
   }
   const token = process.env.SLACK_BOT_TOKEN
   if (!token) return NextResponse.json({ error: 'SLACK_BOT_TOKEN is not defined' }, { status: 500 })
