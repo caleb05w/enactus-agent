@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { alertBotLog } from '@/lib/botlog'
+import { HOURS_SPREADSHEET_ID, HOURS_SHEET_GID } from '@/lib/destinations'
 
 const CHANNEL_ID = 'C0B1D5R8GRY'
 const CALEB = /caleb/i // the name row cell reads "Caleb"
 const TZ = 'America/Vancouver'
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const DEFAULT_HOURS_SPREADSHEET_ID = '1rMW2qPCCDzT-UsHZzmr2teF1ZcHWz5l3fKkK7QzqMUg'
-// The hours spreadsheet's specific tab (the gid in its URL). Override via env.
-const HOURS_GID = Number(process.env.GOOGLE_HOURS_SHEET_GID || 1919073716)
-
-function hoursSpreadsheetId() {
-  return process.env.GOOGLE_HOURS_SPREADSHEET_ID || process.env.GOOGLE_SPREADSHEET_ID || DEFAULT_HOURS_SPREADSHEET_ID
-}
+// The hours spreadsheet's specific tab (the gid in its URL).
+const HOURS_GID = HOURS_SHEET_GID
 
 function authorized(req) {
   if (!process.env.CRON_SECRET) return true
@@ -47,17 +43,12 @@ function currentWeekMondayLabel() {
   return `${MON[d.getUTCMonth()]} ${d.getUTCDate()}` // no leading zero, matches "Jun 22"
 }
 
-function hoursUrl() {
-  return `${(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')}/hours`
-}
-
 function sheetUrl() {
-  const id = hoursSpreadsheetId()
-  return `https://docs.google.com/spreadsheets/d/${id}/edit?gid=${HOURS_GID}#gid=${HOURS_GID}`
+  return `https://docs.google.com/spreadsheets/d/${HOURS_SPREADSHEET_ID}/edit?gid=${HOURS_GID}#gid=${HOURS_GID}`
 }
 
 async function updateCalebHours() {
-  const spreadsheetId = hoursSpreadsheetId()
+  const spreadsheetId = HOURS_SPREADSHEET_ID
   const auth = new google.auth.JWT({
     email: process.env.GOOGLE_CLIENT_EMAIL,
     key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
@@ -98,16 +89,15 @@ async function postReminder(token) {
   }).then((r) => r.json())
   if (!auth.ok) throw new Error(`Slack auth error: ${auth.error}`)
   const mention = `<@${auth.user_id}>`
-  const link = `<${hoursUrl()}|Log hours via Enactus Agent> · <${sheetUrl()}|Open spreadsheet>`
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       channel: CHANNEL_ID,
-      text: `${mention} Weekly reminder: update your Enactus hours. ${hoursUrl()}`,
+      text: `${mention} Weekly reminder: update your Enactus hours. ${sheetUrl()}`,
       blocks: [
         { type: 'section', text: { type: 'mrkdwn', text: `*Weekly hour tracking reminder* (${mention})\nPlease update your hours.` } },
-        { type: 'section', text: { type: 'mrkdwn', text: link } },
+        { type: 'section', text: { type: 'mrkdwn', text: `<${sheetUrl()}|Open spreadsheet>` } },
       ],
     }),
   })

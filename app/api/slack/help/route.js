@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
+import { SPREADSHEET_ID } from '@/lib/destinations'
 
 export async function POST() {
-  const trackerUrl = process.env.GOOGLE_SPREADSHEET_ID
-    ? `https://docs.google.com/spreadsheets/d/${process.env.GOOGLE_SPREADSHEET_ID}/edit`
-    : null
+  const trackerUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`
 
   return NextResponse.json({
     response_type: 'in_channel',
@@ -24,8 +23,6 @@ export async function POST() {
         fields: [
           { type: 'mrkdwn', text: '*🧾 File a finance request*' },
           { type: 'mrkdwn', text: `<${process.env.NEXT_PUBLIC_APP_URL}/finance|Open finance form>` },
-          { type: 'mrkdwn', text: '*📋 Submit a project*' },
-          { type: 'mrkdwn', text: `<${process.env.NEXT_PUBLIC_APP_URL}/submit|Open submission form>` },
           ...(trackerUrl
             ? [
                 { type: 'mrkdwn', text: '*📊 Finance tracker*' },

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { connectDB } from '@/lib/mongodb'
+import { SPREADSHEET_ID } from '@/lib/destinations'
 
 function makeAuth(scopes) {
   return new google.auth.JWT({
@@ -23,9 +24,8 @@ async function checkDrive() {
 }
 
 async function checkSheets() {
-  if (!process.env.GOOGLE_SPREADSHEET_ID) throw new Error('not configured')
   const sheets = google.sheets({ version: 'v4', auth: makeAuth(['https://www.googleapis.com/auth/spreadsheets.readonly']) })
-  await sheets.spreadsheets.get({ spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID, fields: 'spreadsheetId' })
+  await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID, fields: 'spreadsheetId' })
 }
 
 async function checkCalendar() {

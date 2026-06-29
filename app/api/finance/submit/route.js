@@ -66,7 +66,6 @@ export async function POST(req) {
 
         if (!process.env.GOOGLE_CLIENT_EMAIL) console.warn('[finance/submit] Missing env: GOOGLE_CLIENT_EMAIL')
         if (!process.env.GOOGLE_PRIVATE_KEY) console.warn('[finance/submit] Missing env: GOOGLE_PRIVATE_KEY')
-        if (!process.env.GOOGLE_SPREADSHEET_ID) console.warn('[finance/submit] Missing env: GOOGLE_SPREADSHEET_ID')
         if (!process.env.GOOGLE_DRIVE_FOLDER_ID) console.warn('[finance/submit] Missing env: GOOGLE_DRIVE_FOLDER_ID')
         if (!process.env.MONGODB_URI) console.warn('[finance/submit] Missing env: MONGODB_URI')
         if (!process.env.SLACK_BOT_TOKEN) console.warn('[finance/submit] Missing env: SLACK_BOT_TOKEN')

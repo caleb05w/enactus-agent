@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SPREADSHEET_ID } from '@/lib/destinations'
 
 export const metadata = {
   title: 'Enactus Agent',
@@ -6,10 +7,7 @@ export const metadata = {
 }
 
 export default function Home() {
-  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID
-  const trackerUrl = spreadsheetId
-    ? `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
-    : null
+  const trackerUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-white px-6">
@@ -21,8 +19,7 @@ export default function Home() {
           </h1>
           <p className="text-base">
             Submit a reimbursement or money request — it&rsquo;s logged to the team
-            spreadsheet and posted to Slack for review. You can also log your weekly
-            hours or share a project idea or update.
+            spreadsheet and posted to Slack for review.
           </p>
         </div>
 
@@ -32,18 +29,6 @@ export default function Home() {
             className="inline-flex items-center justify-center rounded-md bg-zinc-950 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
           >
             New finance request
-          </Link>
-          <Link
-            href="/hours"
-            className="inline-flex items-center justify-center rounded-md border border-zinc-200 px-6 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-          >
-            Log your hours
-          </Link>
-          <Link
-            href="/submit"
-            className="inline-flex items-center justify-center rounded-md border border-zinc-200 px-6 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-          >
-            Make a submission
           </Link>
         </div>
 
@@ -58,12 +43,6 @@ export default function Home() {
               View the finance tracker
             </a>
           )}
-          <Link
-            href="/hours"
-            className="font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900"
-          >
-            Hour tracker
-          </Link>
           <Link
             href="/settings"
             className="font-medium text-zinc-600 underline underline-offset-4 hover:text-zinc-900"
